@@ -1,0 +1,8 @@
+*~
+\#*
+__pycache__
+*.pyc
+vivado.jou
+vivado.log
+vivado_pid*.str
+proj_*
