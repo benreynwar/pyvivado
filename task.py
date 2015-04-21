@@ -154,6 +154,11 @@ close $fileId
             'as part xc7z045ffg900-2 specified in board_part file is either',
             # Ignore Webtalk communication problems
             '[XSIM 43-3294] Signal EXCEPTION_ACCESS_VIOLATION received',
+            # Ignore Warnings from Xilinx DDS Compiler
+            '"/proj/xhdhdstaff/saikatb/verific_integ/data/vhdl/src/ieee/distributable/numeric_std.vhd" Line 2547. Foreign attribute on subprog "<=" ignored',
+            '"/proj/xhdhdstaff/saikatb/verific_integ/data/vhdl/src/ieee/distributable/numeric_std.vhd" Line 2895. Foreign attribute on subprog "=" ignored',
+            # Ignore timescale warnings
+            "has a timescale but at least one module in design doesn't have timescale.",
         )
         messages = []
         out_lines = (self.get_stdout(), self.get_stderr())

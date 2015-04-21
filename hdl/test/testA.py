@@ -1,7 +1,7 @@
 import os
 import logging
 
-from pyvivado import interface, signal, config, info, builder
+from pyvivado import interface, signal, config, builder
 
 logger = logging.getLogger(__name__)
 
