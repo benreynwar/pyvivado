@@ -15,9 +15,6 @@ class TestTestA(unittest.TestCase):
 
     def test_one(self):
         directory = os.path.abspath('proj_test_testA')
-        if os.path.exists(directory):
-            shutil.rmtree(directory)
-        os.mkdir(directory)
         data_width = 4
         array_length = 6
         params = {
@@ -47,7 +44,7 @@ class TestTestA(unittest.TestCase):
 
         # Create project
         interface = testA.get_testA_interface(params)
-        p = project.FileTestBenchProject.create(
+        p = project.FileTestBenchProject.create_or_update(
             interface=interface,
             directory=directory,
             board=config.default_board,

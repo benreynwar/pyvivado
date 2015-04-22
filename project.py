@@ -3,6 +3,8 @@ import fnmatch
 import logging
 import time
 import json
+import hashlib
+import shutil
 
 from pyvivado import config, task, utils, interface, builder, redis_utils, sqlite_collection
 from pyvivado.hdl.wrapper import inner_wrapper, file_testbench
@@ -23,6 +25,32 @@ class Project(object):
         tasks_collection = sqlite_collection.SQLLiteCollection(db_fn)        
         return tasks_collection
 
+    @staticmethod
+    def hash(design_files, simulation_files, ips):
+        h = hashlib.sha1()
+        h.update(utils.files_hash(design_files))
+        h.update(utils.files_hash(simulation_files))
+        # FIXME: Not sure whether this will work properly for
+        # the ips
+        h.update(str(ips).encode('ascii'))
+        return h.digest()
+
+    @staticmethod
+    def read_hash(directory):
+        hash_fn = os.path.join(directory, 'hash.txt')
+        if not os.path.exists(hash_fn):
+            h = None
+        else:
+            with open(hash_fn, 'rb') as f:
+                h = f.read()
+        return h
+
+    @staticmethod
+    def write_hash(directory, h):
+        hash_fn = os.path.join(directory, 'hash.txt')
+        with open(hash_fn, 'wb') as f:
+            f.write(h)
+
     @classmethod
     def create(cls, directory, design_files, simulation_files,
                tasks_collection=None,
@@ -42,6 +70,11 @@ class Project(object):
         tcl_ips = ' '.join(['{{ {} }}'.format(ip) for ip in tcl_ips])
         if os.path.exists(os.path.join(directory, 'TheProject.xpr')):
             raise Exception('Project already exists.')
+        cls.write_hash(directory, cls.hash(
+            design_files=design_files,
+            simulation_files=simulation_files,
+            ips=ips,
+        ))
         command_template = '''::pyvivado::create_vivado_project {{{directory}}} {{ {design_files} }} {{ {simulation_files} }} {{{part}}} {{{board}}} {{{ips}}} {{{top_module}}}'''
         command = command_template.format(
             directory=directory,
@@ -104,12 +137,37 @@ class Project(object):
 
 
 class BuilderProject(Project):
-    
+
+    @classmethod
+    def delete_if_changed(
+            cls, design_builders, simulation_builders, parameters, directory):
+        if os.path.exists(directory):
+            # The project exists so we need to check if files and ip have
+            # changed.
+            # Make a new directory for temporary files.
+            temp_dir = os.path.join(directory, 'temp')
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+            os.makedirs(temp_dir)
+            design_requirements = builder.build_all(
+                temp_dir, top_builders=design_builders, top_params=parameters)
+            simulation_requirements = builder.build_all(
+                temp_dir, top_builders=simulation_builders,
+                top_params=parameters)
+            ips = builder.condense_ips(
+                design_requirements['ips'] + simulation_requirements['ips'])
+            new_hash = cls.hash(
+                design_files=design_requirements['filenames'],
+                simulation_files=simulation_requirements['filenames'],
+                ips=ips)
+            old_hash = cls.read_hash(directory)
+            if new_hash != old_hash:
+                logger.debug('Project has changed {}->{}.  Deleting and regenerating.'.format(old_hash, new_hash))
+                shutil.rmtree(directory)
+
     @classmethod
     def create(cls, design_builders, simulation_builders, parameters, directory,
-               tasks_collection=None,
-               part='', board='',
-               top_module=''):
+               tasks_collection=None, part='', board='', top_module=''):
         design_requirements = builder.build_all(
             directory, top_builders=design_builders, top_params=parameters)
         simulation_requirements = builder.build_all(
@@ -188,6 +246,41 @@ class FPGAProject(BuilderProject):
         
 
 class FileTestBenchProject(BuilderProject):
+
+    @classmethod
+    def delete_if_changed(cls, interface, directory):
+        inner_wrapper_builder = inner_wrapper.InnerWrapperBuilder({
+            'interface': interface,
+        })
+        file_testbench_builder = file_testbench.FileTestbenchBuilder({
+            'interface': interface,
+        })
+        super().delete_if_changed(
+            directory=directory,
+            design_builders=[inner_wrapper_builder, interface.builder],
+            simulation_builders=[file_testbench_builder],
+            parameters=interface.parameters,
+        )
+
+    @classmethod
+    def create_or_update(cls, interface, directory,
+               tasks_collection=None,
+               part='', board=''):
+        if os.path.exists(directory):
+            cls.delete_if_changed(interface=interface, directory=directory)
+        if os.path.exists(directory):
+            p = cls(directory=directory, tasks_collection=tasks_collection)
+        else:
+            os.makedirs(directory)
+            p = cls.create(
+                interface=interface,
+                directory=directory,
+                tasks_collection=tasks_collection,
+                part=part,
+                board=board,
+            )
+        return p
+                
 
     @classmethod
     def create(cls, interface, directory,
