@@ -49,6 +49,18 @@ proc ::pyvivado::create_vivado_project {project_dir design_files simulation_file
     update_compile_order -fileset sources_1
 }
 
+# This is just here for testing tasks
+# It never returns and must be killed.
+proc ::pyvivado::loop_forever {dummy_file} {
+    set counter 0
+    while 1 {
+	set fileId [open $dummy_file "a"]
+	puts $fileId $counter
+	close $fileId	
+	incr counter
+	after 1000
+    }
+}
 
 proc ::pyvivado::is_synthesized {} {
     set is_done 1
