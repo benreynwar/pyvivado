@@ -79,10 +79,10 @@ def params_from_xco(xco_filename):
     return params
 
 
-def get_all_builders(top_builder=None, top_package=None, top_params={}):
+def get_all_builders(top_builders=[], top_package=None, top_params={}):
     done_builders = {}
     todo_builders = {}
-    if top_builder:
+    for top_builder in top_builders:
         todo_builders[top_builder._id()] = top_builder
     if top_package:
         package_builder = package_register[package_name](top_params)
@@ -105,24 +105,30 @@ def get_all_builders(top_builder=None, top_package=None, top_params={}):
     builders = done_builders.values()
     return builders
 
+def condense_ips(ips):
+    condensed_ips = []
+    ip_hashs = set()
+    for ip in ips:
+        ip_hash = make_hashable(ip)
+        if ip_hash not in ip_hashs:
+            condensed_ips.append(ip)
+            ip_hashs.add(ip_hash)
+    return condensed_ips
+
 def get_requirements(builders, directory):
     filenames = set()
     ips = []
     ip_hashs = set()
     for builder in builders:
-        for ip in builder.required_ips():
-            ip_hash = make_hashable(ip)
-            if ip_hash not in ip_hashs:
-                ips.append(ip)
-                ip_hashs.add(ip_hash)
+        ips += builder.required_ips()
         filenames |= set(builder.required_filenames(directory))
     return {
         'filenames': filenames,
-        'ips': ips,
+        'ips': condense_ips(ips),
     }
 
-def build_all(directory, top_builder=None, top_package=None, top_params={}):
-    builders = get_all_builders(top_builder=top_builder,
+def build_all(directory, top_builders=[], top_package=None, top_params={}):
+    builders = get_all_builders(top_builders=top_builders,
                                 top_package=top_package,
                                 top_params=top_params)
     for builder in builders:
