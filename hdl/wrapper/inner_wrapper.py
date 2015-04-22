@@ -37,6 +37,7 @@ class InnerWrapperBuilder(builder.Builder):
             'signals_in': signals_in,
             'signals_out': signals_out,
             'dut_name': self.interface.module_name,
+            'wrapped_module_name': self.interface.wrapped_module_name,
             'dut_parameters': self.interface.module_parameters,
             'clock_names': self.interface.clock_names,
             'packages': self.interface.packages,
