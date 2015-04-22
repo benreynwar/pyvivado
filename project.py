@@ -287,6 +287,8 @@ class FileTestBenchProject(BuilderProject):
             parameters=interface.parameters,
         )
 
+    
+
     @classmethod
     def create_or_update(cls, interface, directory,
                tasks_collection=None,
@@ -306,6 +308,9 @@ class FileTestBenchProject(BuilderProject):
                 part=part,
                 board=board,
             )
+            t = p.wait_for_most_recent_task()
+            errors = t.get_errors()
+            assert(len(errors) == 0)
         return p
                 
 
@@ -340,11 +345,13 @@ class FileTestBenchProject(BuilderProject):
         self.interface = interface.module_register[self.params['factory_name']](
             params=self.params)
 
-    def run_simulation(self, input_data, runtime, sim_type='hdl'):
+    def run_simulation(self, input_data, runtime=None, sim_type='hdl'):
         command_template = '''
 open_project {{{project_filename}}}
 ::pyvivado::run_{sim_type}_simulation {{{directory}}} {{{runtime}}}
 '''
+        if runtime is None:
+            runtime = '{} ns'.format((len(input_data) + 20) * 10)
         command = command_template.format(
             project_filename=self.filename, runtime=runtime, sim_type=sim_type,
             directory=self.directory) 
@@ -364,4 +371,3 @@ open_project {{{project_filename}}}
             os.path.join(t.directory, self.output_filename))
         return errors, data_out
 
-    
