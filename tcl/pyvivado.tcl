@@ -97,11 +97,22 @@ proc ::pyvivado::open_and_implement {proj_dir} {
     ::pyvivado::implement
 }
 
-proc ::pyvivado::run_hdl_simulation {runtime} {
+proc ::pyvivado::run_hdl_simulation {proj_dir runtime} {
+    set sim_dir "${proj_dir}/TheProject.sim/sim_1"
+    set sim_dir_exists [file isdirectory $sim_dir]
+    if {$sim_dir_exists == 1} {
+	set_property skip_compilation 1 [get_filesets sim_1]
+	puts "DEBUG: Skipping test compilation."
+    } else {
+	set_property skip_compilation 0 [get_filesets sim_1]
+	puts "DEBUG: Not skipping test compilation."
+    }
     set_property xsim.simulate.runtime $runtime [get_filesets sim_1]
     puts "DEBUG: About to run_hdl_simulation and pwd is [pwd]"
     launch_xsim -simset sim_1 -mode behavioral
 }
+
+
 
 proc ::pyvivado::run_post_synthesis_simulation {runtime} {
     set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY none [get_runs synth_1]

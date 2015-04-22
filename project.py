@@ -28,11 +28,23 @@ class Project(object):
     @staticmethod
     def hash(design_files, simulation_files, ips):
         h = hashlib.sha1()
-        h.update(utils.files_hash(design_files))
-        h.update(utils.files_hash(simulation_files))
+        design_files = sorted(list(design_files))
+        simulation_files = sorted(list(simulation_files))
+        # Sort IPs by their name.
+        def get_name(a):
+            return a[2]
+        # Check that names are unique
+        names = [a[2] for a in ips]
+        assert(len(names) == len(set(names)))
+        ips = sorted(list(ips), key=get_name)
+        design_files_hash = utils.files_hash(design_files)
+        simulation_files_hash = utils.files_hash(simulation_files)
         # FIXME: Not sure whether this will work properly for
         # the ips
-        h.update(str(ips).encode('ascii'))
+        ips_hash = str(ips).encode('ascii')
+        h.update(utils.files_hash(design_files))
+        h.update(utils.files_hash(simulation_files))
+        h.update(ips_hash)
         return h.digest()
 
     @staticmethod
@@ -139,32 +151,45 @@ class Project(object):
 class BuilderProject(Project):
 
     @classmethod
-    def delete_if_changed(
-            cls, design_builders, simulation_builders, parameters, directory):
+    def predict_hash(cls, design_builders, simulation_builders, parameters,
+                     temp_directory, directory):
+        # Make a new directory for temporary files.
+        if os.path.exists(temp_directory):
+            shutil.rmtree(temp_directory)
+        os.makedirs(temp_directory)
+        parameters['directory'] = directory
+        design_requirements = builder.build_all(
+            temp_directory, top_builders=design_builders, top_params=parameters)
+        simulation_requirements = builder.build_all(
+            temp_directory, top_builders=simulation_builders,
+            top_params=parameters, false_directory=directory)
+        ips = builder.condense_ips(
+            design_requirements['ips'] + simulation_requirements['ips'])
+        new_hash = cls.hash(
+            design_files=design_requirements['filenames'],
+            simulation_files=simulation_requirements['filenames'],
+            ips=ips)
+        return new_hash
+            
+
+    @classmethod
+    def delete_if_changed(cls, design_builders, simulation_builders, parameters,
+                          directory):
         if os.path.exists(directory):
-            # The project exists so we need to check if files and ip have
-            # changed.
-            # Make a new directory for temporary files.
-            temp_dir = os.path.join(directory, 'temp')
-            if os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
-            os.makedirs(temp_dir)
-            design_requirements = builder.build_all(
-                temp_dir, top_builders=design_builders, top_params=parameters)
-            simulation_requirements = builder.build_all(
-                temp_dir, top_builders=simulation_builders,
-                top_params=parameters)
-            ips = builder.condense_ips(
-                design_requirements['ips'] + simulation_requirements['ips'])
-            new_hash = cls.hash(
-                design_files=design_requirements['filenames'],
-                simulation_files=simulation_requirements['filenames'],
-                ips=ips)
+            new_hash = cls.predict_hash(
+                design_builders=design_builders,
+                simulation_builders=simulation_builders,
+                parameters=parameters,
+                temp_directory=os.path.join(directory, 'temp'),
+                directory=directory,
+            )
             old_hash = cls.read_hash(directory)
             if new_hash != old_hash:
                 logger.debug('Project has changed {}->{}.  Deleting and regenerating.'.format(old_hash, new_hash))
                 shutil.rmtree(directory)
-
+            else:
+                logger.debug('Project has not changed since last time.')
+            
     @classmethod
     def create(cls, design_builders, simulation_builders, parameters, directory,
                tasks_collection=None, part='', board='', top_module=''):
@@ -269,8 +294,10 @@ class FileTestBenchProject(BuilderProject):
         if os.path.exists(directory):
             cls.delete_if_changed(interface=interface, directory=directory)
         if os.path.exists(directory):
+            logger.debug('Using old Project.')
             p = cls(directory=directory, tasks_collection=tasks_collection)
         else:
+            logger.debug('Making new Project.')
             os.makedirs(directory)
             p = cls.create(
                 interface=interface,
@@ -316,10 +343,11 @@ class FileTestBenchProject(BuilderProject):
     def run_simulation(self, input_data, runtime, sim_type='hdl'):
         command_template = '''
 open_project {{{project_filename}}}
-::pyvivado::run_{sim_type}_simulation {{{runtime}}}
+::pyvivado::run_{sim_type}_simulation {{{directory}}} {{{runtime}}}
 '''
         command = command_template.format(
-            project_filename=self.filename, runtime=runtime, sim_type=sim_type) 
+            project_filename=self.filename, runtime=runtime, sim_type=sim_type,
+            directory=self.directory) 
         # Create a task to run the simulation.
         t = task.VivadoTask.create(
             parent_directory=self.directory,

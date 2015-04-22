@@ -6,11 +6,51 @@ import time
 
 from pyvivado import config, project
 
+from pyvivado.hdl.test import testA
+from pyvivado.hdl.wrapper import inner_wrapper, file_testbench
+
 logger = logging.getLogger('pyvivado.test_project')
 
 
 class TestProject(unittest.TestCase):
-    
+
+    def test_hash_prediction(self):
+
+        def get_hash(data_width, array_length, directory, temp_directory):
+            interface = testA.get_testA_interface({
+                'data_width': data_width,
+                'array_length': array_length,
+            })
+            inner_wrapper_builder = inner_wrapper.InnerWrapperBuilder({
+                'interface': interface,
+            })
+            file_testbench_builder = file_testbench.FileTestbenchBuilder({
+                'interface': interface,
+            })
+            design_builders = [inner_wrapper_builder, interface.builder]
+            simulation_builders = [file_testbench_builder]
+            parameters = interface.parameters
+            h = project.BuilderProject.predict_hash(
+                design_builders=design_builders,
+                simulation_builders=simulation_builders,
+                parameters=parameters,
+                temp_directory=temp_directory,
+                directory=directory,
+            )
+            return h
+        
+        hs = []
+        for i in range(10):
+            h = get_hash(
+                data_width=3,
+                array_length=4,
+                directory='blah',
+                temp_directory=os.path.join(
+                    config.testdir, 'test_hash_prediction_{}'.format(i)),
+            )
+            self.assertEqual(h, b'\xf5tpH\xa2\x83\xfbY\xd5\x83\xad\xc6-\x16\x04f\xaeL\x9fd')
+        
+
     def test_one(self):
         logger.debug('Running TestProject.test_one')
         dn = os.path.join(config.testdir, 'proj_test_project')

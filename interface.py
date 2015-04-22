@@ -1,5 +1,6 @@
 import os
 import logging
+import collections
 
 from pyvivado import utils, config
 
@@ -26,7 +27,8 @@ class Interface(object):
         self.clock_names = clock_names
         self.module_name = module_name
         self.parameters = parameters
-        self.module_parameters = module_parameters
+        self.module_parameters = collections.OrderedDict(
+            sorted(list(module_parameters.items())))
         self.packages = packages
         self.builder = builder
         self.filenames = filenames

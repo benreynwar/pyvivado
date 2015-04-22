@@ -159,6 +159,10 @@ close $fileId
             '"/proj/xhdhdstaff/saikatb/verific_integ/data/vhdl/src/ieee/distributable/numeric_std.vhd" Line 2895. Foreign attribute on subprog "=" ignored',
             # Ignore timescale warnings
             "has a timescale but at least one module in design doesn't have timescale.",
+            # Ignore warning about skipping compilation
+            "[Vivado 12-3258] Skipping simulation compilation as requested. Simulation will be launched with existing compiled results, if any. To change this behavior, please reset the 'SKIP_COMPILATION' property on the simulation fileset 'sim_1'",
+            # Ignore warnings from Ettus files.
+            "[VRFC 10-1783] select index 1 into en0 is out of bounds", # in mult.v
         )
         messages = []
         out_lines = (self.get_stdout(), self.get_stderr())

@@ -1,5 +1,6 @@
 import collections
 import logging
+import inspect
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ class Builder(object):
     def required_packages(self):
         return self.packages
 
-    def build(self, directory):
+    def build(self, directory, false_directory=None):
         pass
 
 
@@ -127,11 +128,18 @@ def get_requirements(builders, directory):
         'ips': condense_ips(ips),
     }
 
-def build_all(directory, top_builders=[], top_package=None, top_params={}):
+def build_all(directory, top_builders=[], top_package=None, top_params={},
+              false_directory=None):
     builders = get_all_builders(top_builders=top_builders,
                                 top_package=top_package,
                                 top_params=top_params)
     for builder in builders:
-        builder.build(directory)
+        argspec = inspect.getargspec(builder.build)
+        # Don't force all builders to take 'false_directory' when almost
+        # none need it.
+        if 'false_directory' in argspec.args:
+            builder.build(directory=directory, false_directory=false_directory)
+        else:
+            builder.build(directory=directory)
     requirements = get_requirements(builders, directory)
     return requirements
