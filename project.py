@@ -271,14 +271,46 @@ class FPGAProject(BuilderProject):
             assert(len(errors) == 0)
         return p
 
+    def get_monitors_hwcode(self, monitor_task):
+        # Wait for the monitor to become available.
+        max_waits = 60
+        n_waits = 0
+        hwcode = None
+        while (hwcode is None) and (n_waits < max_waits) and (not monitor_task.is_finished()):
+            hwcode = connection.get_projdir_hwcode(self.directory)
+            n_waits += 1
+            time.sleep(1)
+        # If the task is finished something must have gone wrong
+        # so log it's messages.
+        if monitor_task.is_finished():
+            monitor_task.log_messages(monitor_task.get_messages())
+        deploy_errors = monitor_task.get_errors()
+        logger.debug('Waited {}s to see deployment'.format(n_waits))
+        if (len(deploy_errors) != 0):
+            raise Exception('Got send_to_fpga_and_monitor errors.')
+        if hwcode is None:
+            raise Exception('Failed to deploy project')
+
+    def monitor_existing(self):
+        hwcode = redis_utils.get_unmonitored_projdir_hwcode(self.directory)
+        if hwcode is None:
+            raise StandardException('No free hardware running this project found.')
+        description = 'Monitor Redis connection and pass command to FPGA.'
+        t = task.VivadoTask.create(
+            parent_directory=self.directory,
+            command_text='::pyvivado::monitor_redis {} 0'.format(hwcode),
+            description=description,
+            tasks_collection=self.tasks_collection,
+        )
+        t.run()
+        hwcode = self.get_monitors_hwcode(t)
+        conn = connection.Connection(hwcode)
+        return t, conn
+
+
     def send_to_fpga_and_monitor(self, fake=False):
         # First kill any monitors connected to this project.
-        hwcode = True
-        while hwcode:
-            hwcode = connection.get_projdir_hwcode(self.directory)
-            if hwcode:
-                conn = connection.Connection(hwcode)
-                conn.kill_monitor()
+        connection.kill_free_monitors(self.directory)
         if fake:
             fake_int = 1
             description = 'Faking sending the project to fpga and monitoring.'
@@ -296,24 +328,7 @@ class FPGAProject(BuilderProject):
             tasks_collection=self.tasks_collection,
         )
         t.run()
-        # Wait for the monitor to become available.
-        max_waits = 30
-        n_waits = 0
-        hwcode = None
-        while (hwcode is None) and (n_waits < max_waits) and (not t.is_finished()):
-            hwcode = connection.get_projdir_hwcode(self.directory)
-            n_waits += 1
-            time.sleep(1)
-        # If the task is finished something must have gone wrong
-        # so log it's messages.
-        if t.is_finished():
-            t.log_messages(t.get_messages())
-        deploy_errors = t.get_errors()
-        if (len(deploy_errors) != 0):
-            raise Exception('Got send_to_fpga_and_monitor errors.')
-        if hwcode is None:
-            raise Exception('Failed to deploy project')
-        logger.debug('Waited {}s to see deployment'.format(n_waits))
+        hwcode = self.get_monitors_hwcode(t)
         conn = connection.Connection(hwcode)
         return t, conn
 

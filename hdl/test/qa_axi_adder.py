@@ -80,6 +80,7 @@ class TestAxiAdder(unittest.TestCase):
         random.seed(1)
         directory = os.path.abspath('proj_testaxiadderfpga')
         the_builder = axi_adder.AxiAdderBuilder({})
+        connection.kill_free_monitors(directory)
         # Create the project, synthesize, implement and deploy to the FPGA.
         p = project.FPGAProject.create_or_update(
             the_builder=the_builder,
@@ -94,7 +95,7 @@ class TestAxiAdder(unittest.TestCase):
         t = p.implement()
         t.wait()
         errors = t.get_errors()
-        self.assertEqual(len(errors) == 0)
+        self.assertEqual(len(errors), 0)
         # Send this project's bistream to an FPGA and launch a Vivado
         # process to monitor it.
         t, conn = p.send_to_fpga_and_monitor()

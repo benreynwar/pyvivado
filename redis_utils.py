@@ -80,6 +80,14 @@ def get_free_hwcode():
             free = hwcode
     return free
 
+def get_unmonitored_projdir_hwcode(projdir):
+    projdir_hwcode = None
+    for hwcode in config.hwcodes:
+        if hwcode_projdir(hwcode) == projdir:
+            if (not hwcode_A_active(hwcode)):
+                projdir_hwcode = hwcode
+    return projdir_hwcode    
+
 def get_projdir_hwcode(projdir):
     projdir_hwcode = None
     for hwcode in config.hwcodes:

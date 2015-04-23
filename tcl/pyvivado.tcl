@@ -166,7 +166,12 @@ proc ::pyvivado::send_to_fpga_and_monitor {proj_dir hwcode fake} {
 
 proc ::pyvivado::monitor_redis {hwcode fake} {
     if {$fake == 0} {
-	reset_hw_axi [get_hw_axis hw_axi_1]
+	connect_hw_server -host localhost -port 60001 -url localhost:3121
+	current_hw_target [get_hw_targets */xilinx_tcf/Digilent/$hwcode]
+	set_property PARAM.FREQUENCY 15000000 [get_hw_targets */xilinx_tcf/Digilent/$hwcode]
+	open_hw_target
+	current_hw_device [lindex [get_hw_devices] 0]
+	refresh_hw_device [lindex [get_hw_devices] 0]
     }
     package require redis
     set r [redis 127.0.0.1 6379]
@@ -187,7 +192,11 @@ proc ::pyvivado::send_bitstream_to_fpga {proj_dir hwcode fake} {
 	current_hw_target [get_hw_targets */xilinx_tcf/Digilent/$hwcode]
 	set_property PARAM.FREQUENCY 15000000 [get_hw_targets */xilinx_tcf/Digilent/$hwcode]
 	open_hw_target
-	set_property PROGRAM.FILE "${proj_dir}/TheProject.runs/impl_1/FileTestBench.bit" [lindex [get_hw_devices] 0]
+	if {[file exists "${proj_dir}/TheProject.runs/impl_1/FileTestBench.bit"]} {
+	    set_property PROGRAM.FILE "${proj_dir}/TheProject.runs/impl_1/FileTestBench.bit" [lindex [get_hw_devices] 0]
+	} else {
+	    set_property PROGRAM.FILE "${proj_dir}/TheProject.runs/impl_1/JtagAxiWrapper.bit" [lindex [get_hw_devices] 0]
+	}
 	set_property PROBES.FILE "${proj_dir}/TheProject.runs/impl_1/debug_nets.ltx" [lindex [get_hw_devices] 0]
 	current_hw_device [lindex [get_hw_devices] 0]
 	refresh_hw_device [lindex [get_hw_devices] 0]
