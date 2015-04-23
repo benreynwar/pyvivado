@@ -238,7 +238,7 @@ close $fileId
         return lines        
 
     def is_finished(self):
-        return os.path.exists(os.path.join(self.directory, 'finished.txt.'))
+        return os.path.exists(os.path.join(self.directory, 'finished.txt'))
 
     def wait(self, sleep_time=1):
         finished = self.is_finished()
