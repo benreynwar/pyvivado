@@ -244,6 +244,19 @@ class FPGAProject(BuilderProject):
             part=part,
         )
         return p
+
+    def fake_monitor(self, hwcode):
+        '''
+        Fake redis monitor for testing.
+        '''
+        t = task.VivadoTask.create(
+            parent_directory=self.directory,
+            command_text='::pyvivado::monitor_redis {} 1'.format(hwcode),
+            description='Fake monitor of redis.',
+            tasks_collection=self.tasks_collection,
+        )
+        t.run()
+        return t
         
     def send_to_fpga_and_monitor(self):
         hwcode = redis_utils.get_free_hwcode()

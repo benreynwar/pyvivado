@@ -101,17 +101,31 @@ class VivadoTask(Task):
     def create(cls, parent_directory, command_text, tasks_collection,
                description=None):
         command_template = '''
+set current_state_f current_state.txt
+set fileId [open $current_state_f "w"]
+puts -nonewline $fileId RUNNING
+close $fileId
+set finished_f finished.txt
 if {{[catch {{
   lappend auto_path {{{tcl_directory}}}
   puts $auto_path
   package require pyvivado
   {command}
-  }} message]}} {{
+}} message]}} {{
   puts "ERROR: $message"
+  set fileId [open $current_state_f "w"]
+  puts -nonewline $fileId FINISHED_ERROR
+  close $fileId
+  set fileId [open $finished_f "w"]
+  puts -nonewline $fileId FINISHED_ERROR
+  close $fileId
 }}
-set filename finished 
-set fileId [open $filename "w"]
-close $fileId  
+set fileId [open $current_state_f "w"]
+puts -nonewline $fileId FINISHED_OK
+close $fileId
+set fileId [open $finished_f "w"]
+puts -nonewline $fileId FINISHED_OK
+close $fileId
 '''
         command = command_template.format(
             tcl_directory=config.tcldir,

@@ -143,16 +143,21 @@ proc ::pyvivado::run_timing_simulation {runtime} {
 
 proc ::pyvivado::send_to_fpga_and_monitor {proj_dir hwcode} {
     ::pyvivado::send_bitstream_to_fpga $proj_dir $hwcode
-    ::pyvivado::monitor_redis $hwcode
+    ::pyvivado::monitor_redis $hwcode 0
 }
 
-proc ::pyvivado::monitor_redis {hwcode} {
-    reset_hw_axi [get_hw_axis hw_axi_1]
+proc ::pyvivado::monitor_redis {hwcode fake} {
+    if {$fake == 0} {
+	reset_hw_axi [get_hw_axis hw_axi_1]
+    }
     package require redis
     set r [redis 127.0.0.1 6379]
-    while 1 {
-        ::pyvivado::check_redis $r $hwcode
+    set finish 0
+    $r set ${hwcode}_kill 0
+    while {$finish == 0} {
+        ::pyvivado::check_redis $r $hwcode $fake
         after 500
+	set finish [$r get ${hwcode}_kill]
     }
 }
 
@@ -174,7 +179,7 @@ proc ::pyvivado::send_bitstream_to_fpga {proj_dir hwcode} {
     $r set ${hwcode}_projdir $proj_dir
 }
 
-proc ::pyvivado::check_redis {r hwcode} {
+proc ::pyvivado::check_redis {r hwcode fake} {
     puts "checking redis"
     $r set ${hwcode}_last_A [clock format [clock seconds] -format %Y%m%d%H%M%S]
     set output [$r get ${hwcode}_comm]
@@ -187,8 +192,13 @@ proc ::pyvivado::check_redis {r hwcode} {
             puts "writing to axi"
             set response "R W $address"
             for {set i 0} {$i < $data_length} {incr i} {
-		set results [::pyvivado::write_axi [format %08x [expr {$address+$i}]] [format %08x [lindex $bits [expr {4+$i}]]]]
-		set response "$response [lindex $results 1]"
+		if {$fake == 0} {
+		    set results [::pyvivado::write_axi [format %08x [expr {$address+$i}]] [format %08x [lindex $bits [expr {4+$i}]]]]
+		    set response "$response [lindex $results 1]"
+		} else {
+		    # Don't think the response really matter for write.
+		    set response "$response 0"
+		}
 		$r set ${hwcode}_last_A [clock format [clock seconds] -format %Y%m%d%H%M%S]
             }
             $r set ${hwcode}_comm $response
@@ -196,22 +206,30 @@ proc ::pyvivado::check_redis {r hwcode} {
         if {$typ == "R"} {
             puts "reading from axi length is $data_length"
             set response "R R $address"
-            for {set i 0} {$i < $data_length} {incr i} {
-                set results [::pyvivado::read_axi [format %08x [expr {$address+$i}]]]
-		set response "$response [lindex $results 1]"
+	    for {set i 0} {$i < $data_length} {incr i} {
+		if {$fake == 0} {
+		    set results [::pyvivado::read_axi [format %08x [expr {$address+$i}]]]
+		    set response "$response [lindex $results 1]"
+		} else {
+		    set response "$response 0"
+		}
 		if {$i % 100 == 0} {
 		    puts $i
 		    $r set ${hwcode}_last_A [clock format [clock seconds] -format %Y%m%d%H%M%S]
 		}
-            }
+	    }
             $r set ${hwcode}_comm $response
         }
 	if {$typ == "WW"} {
             puts "writing to axi repeatedly"
             set response "R WW $address"
             for {set i 0} {$i < $data_length} {incr i} {
-		set results [::pyvivado::write_axi [format %08x [expr {$address}]] [format %08x [lindex $bits [expr {4+$i}]]]]
-		set response "$response [lindex $results 1]"
+		if {$fake == 0} {
+		    set results [::pyvivado::write_axi [format %08x [expr {$address}]] [format %08x [lindex $bits [expr {4+$i}]]]]
+		    set response "$response [lindex $results 1]"
+		} else {
+		    set response "$response 0"
+		}
 		$r set ${hwcode}_last_A [clock format [clock seconds] -format %Y%m%d%H%M%S]
             }
             $r set ${hwcode}_comm $response

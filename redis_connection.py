@@ -15,6 +15,10 @@ class Connection(object):
     def __init__(self, hwcode):
         self.name = '{}_comm'.format(hwcode)
         self.listened = '{}_last_B'.format(hwcode)
+        self.kill = '{}_kill'.format(hwcode)
+
+    def kill_monitor(self):
+        r.set(self.kill, 1)        
         
     def wait_for_response(self):
         waittime = 0.1
