@@ -48,7 +48,7 @@ class TestProject(unittest.TestCase):
                 temp_directory=os.path.join(
                     config.testdir, 'test_hash_prediction_{}'.format(i)),
             )
-            self.assertEqual(h, b'C\x00\xec\xaf~\x94\xca=\xa3\x12+\x8e\xbbJ\xe1{\xab\xbc\x16t')
+            self.assertEqual(h, b'\x08\xfeZ\xa3\xb4xcs\xf8\xc9\xf5\x7f\xcf\xd8eF\xa7 \x9a\x08')
 
     def test_one(self):
         logger.debug('Running TestProject.test_one')

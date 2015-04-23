@@ -9,6 +9,19 @@ logger = logging.getLogger(__name__)
 r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
 
+def get_hardware_usage():
+    usage = {}
+    for hwcode in config.hwcodes:
+        projdir = hwcode_projdir(hwcode)
+        activeA = hwcode_A_active(hwcode)
+        activeB = hwcode_B_active(hwcode)
+        usage[hwcode] = {
+            'projdir': projdir,
+            'active': activeA and activeB,
+            'monitored': activeA,
+        }
+    return usage
+
 def summary():
     for hwcode in config.hwcodes:
         projdir = hwcode_projdir(hwcode)

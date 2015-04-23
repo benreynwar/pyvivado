@@ -10,7 +10,6 @@ class JtagAxiWrapperBuilder(builder.Builder):
         self.top_parameters = params.get('top_parameters', {})
         self.packages = [
             'axi_utils',
-            params['top_name'],
         ]
         self.ips = [
             ('clk_wiz', (

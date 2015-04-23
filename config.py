@@ -17,10 +17,10 @@ default_part = 'xc7k70tfbg676-1'
 default_board = ''
 
 hwcodes = [
-    '210203826174A',
-    '210203826420A',
-    '210203826491A',
+    'dummyA',
+    'dummyB',
 ]
+# Real hardware codes look something like '210203826421A'
 
 def get_event_loop():
     loop = asyncio.get_event_loop()

@@ -7,7 +7,7 @@ import hashlib
 import shutil
 
 from pyvivado import config, task, utils, interface, builder, redis_utils, sqlite_collection
-from pyvivado.hdl.wrapper import inner_wrapper, file_testbench
+from pyvivado.hdl.wrapper import inner_wrapper, file_testbench, jtag_axi_wrapper
 
 logger = logging.getLogger(__name__)
 
@@ -238,8 +238,9 @@ class FPGAProject(BuilderProject):
     def make_parent_params(
             cls, the_builder, parameters, directory,
             tasks_collection=None, part='', board=''):
+        jtagaxi_builder = jtag_axi_wrapper.JtagAxiWrapperBuilder(parameters)
         return {
-            'design_builders': [the_builder],
+            'design_builders': [the_builder, jtagaxi_builder],
             'simulation_builders': [],
             'parameters': parameters,
             'directory': directory,
@@ -269,28 +270,21 @@ class FPGAProject(BuilderProject):
             assert(len(errors) == 0)
         return p
 
-    def fake_monitor(self, hwcode):
-        '''
-        Fake redis monitor for testing.
-        '''
-        t = task.VivadoTask.create(
-            parent_directory=self.directory,
-            command_text='::pyvivado::monitor_redis {} 1'.format(hwcode),
-            description='Fake monitor of redis.',
-            tasks_collection=self.tasks_collection,
-        )
-        t.run()
-        return t
-        
-    def send_to_fpga_and_monitor(self):
+    def send_to_fpga_and_monitor(self, fake=False):
+        if fake:
+            fake_int = 1
+            description = 'Faking sending the project to fpga and monitoring.'
+        else:
+            fake_int = 0
+            description = 'Sending project to fpga and monitoring.'
         hwcode = redis_utils.get_free_hwcode()
         if hwcode is None:
             raise StandardException('No free hardware found.')
         t = task.VivadoTask.create(
             parent_directory=self.directory,
-            command_text='::pyvivado::send_to_fpga_and_monitor {{{}}} {}'.format(
-                self.directory, hwcode),
-            description='Sending project to fpga and monitoring.',
+            command_text='::pyvivado::send_to_fpga_and_monitor {{{}}} {} {}'.format(
+                self.directory, hwcode, fake_int),
+            description=description,
             tasks_collection=self.tasks_collection,
         )
         t.run()
