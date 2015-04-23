@@ -142,15 +142,22 @@ close $fileId
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
             DETACHED_PROCESS = 8
-            p = subprocess.Popen(
-                commands,
-                # So that process stays alive when terminal is closed
-                # in Windows.
-                creationflags=DETACHED_PROCESS,
-                stdout=open(stdout_fn, 'w'),
-                stderr=open(stderr_fn, 'w'),
+            if os.name == 'nt':
+                p = subprocess.Popen(
+                    commands,
+                    # So that process stays alive when terminal is closed
+                    # in Windows.
+                    creationflags=DETACHED_PROCESS,
+                    stdout=open(stdout_fn, 'w'),
+                    stderr=open(stderr_fn, 'w'),
+                )
+            else:
+                p = subprocess.Popen(
+                    commands,
+                    stdout=open(stdout_fn, 'w'),
+                    stderr=open(stderr_fn, 'w'),
+                )
                 
-            )
         os.chdir(cwd)
 
     def get_messages(self):

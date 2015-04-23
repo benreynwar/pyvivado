@@ -33,15 +33,11 @@ class Project(object):
         # Sort IPs by their name.
         def get_name(a):
             return a[2]
-        # Check that names are unique
-        names = [a[2] for a in ips]
-        assert(len(names) == len(set(names)))
-        ips = sorted(list(ips), key=get_name)
         design_files_hash = utils.files_hash(design_files)
         simulation_files_hash = utils.files_hash(simulation_files)
         # FIXME: Not sure whether this will work properly for
         # the ips
-        ips_hash = str(ips).encode('ascii')
+        ips_hash = str(tuple(ips)).encode('ascii')
         h.update(utils.files_hash(design_files))
         h.update(utils.files_hash(simulation_files))
         h.update(ips_hash)
@@ -176,19 +172,23 @@ class BuilderProject(Project):
     def delete_if_changed(cls, design_builders, simulation_builders, parameters,
                           directory):
         if os.path.exists(directory):
-            new_hash = cls.predict_hash(
-                design_builders=design_builders,
-                simulation_builders=simulation_builders,
-                parameters=parameters,
-                temp_directory=os.path.join(directory, 'temp'),
-                directory=directory,
-            )
-            old_hash = cls.read_hash(directory)
-            if new_hash != old_hash:
-                logger.debug('Project has changed {}->{}.  Deleting and regenerating.'.format(old_hash, new_hash))
+            # Check that project file exists
+            if not os.path.exists(os.path.join(directory, 'TheProject.xpr')):
                 shutil.rmtree(directory)
             else:
-                logger.debug('Project has not changed since last time.')
+                new_hash = cls.predict_hash(
+                    design_builders=design_builders,
+                    simulation_builders=simulation_builders,
+                    parameters=parameters,
+                    temp_directory=os.path.join(directory, 'temp'),
+                    directory=directory,
+                )
+                old_hash = cls.read_hash(directory)
+                if new_hash != old_hash:
+                    logger.debug('Project has changed {}->{}.  Deleting and regenerating.'.format(old_hash, new_hash))
+                    shutil.rmtree(directory)
+                else:
+                    logger.debug('Project has not changed since last time.')
             
     @classmethod
     def create(cls, design_builders, simulation_builders, parameters, directory,
