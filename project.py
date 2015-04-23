@@ -290,6 +290,7 @@ class FPGAProject(BuilderProject):
             raise Exception('Got send_to_fpga_and_monitor errors.')
         if hwcode is None:
             raise Exception('Failed to deploy project')
+        return hwcode
 
     def monitor_existing(self):
         hwcode = redis_utils.get_unmonitored_projdir_hwcode(self.directory)

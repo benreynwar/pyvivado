@@ -108,6 +108,6 @@ class TestAxiAdder(unittest.TestCase):
         self.assertEqual(output_intCs, expected_intCs)
 
 if __name__ == '__main__':
-    config.setup_logging(logging.DEBUG)
+    config.setup_logging(logging.WARNING)
     unittest.main()
 
