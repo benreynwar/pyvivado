@@ -76,7 +76,7 @@ class Project(object):
             tcl_start = '{ip_name} {{{ip_version}}} {module_name}'.format(
                 ip_name=ip_name, ip_version=ip_version, module_name=module_name)
             tcl_properties = ' '.join(
-                ['{{ {} {} }}'.format(k, v) for k,v in ip_properties.items()])
+                ['{{ {} {} }}'.format(k, v) for k,v in ip_properties])
             tcl_ip = '{} {{ {} }}'.format(tcl_start, tcl_properties)
             tcl_ips.append(tcl_ip)
         tcl_ips = ' '.join(['{{ {} }}'.format(ip) for ip in tcl_ips])
@@ -230,6 +230,7 @@ class BuilderProject(Project):
 
 class FPGAProject(BuilderProject):
 
+    @classmethod
     def create(cls, the_builder, parameters, directory,
                tasks_collection=None,
                part='', board=''):
