@@ -84,7 +84,7 @@ class TestAxiAdder(unittest.TestCase):
         p = project.FPGAProject.create_or_update(
             the_builder=the_builder,
             parameters={
-                'top_name': 'AxiAdder',
+                'top_name': 'axi_adder',
                 'frequency': 100,
             },
             directory=directory,
@@ -93,31 +93,16 @@ class TestAxiAdder(unittest.TestCase):
         )
         t = p.implement()
         t.wait()
-        # Kill any hardware running this project already.
-        hwcode = True
-        while hwcode:
-            hwcode = connection.get_projdir_hwcode(directory)
-            conn = connection.Connection(hwcode)
-            conn.kill_monitor()
-        t = p.send_to_fpga_and_monitor(fake=True)
-        # Wait for there to be some hardware running this project.
-        max_waits = 30
-        n_waits = 0
-        hwcode = None
-        while (hwcode is None) and (n_waits < max_waits):
-            hwcode = connection.get_projdir_hwcode(directory)
-            n_waits += 1
-            time.sleep(1)
-        if hwcode is None:
-            raise Exception('Failed to deploy project')
-        deploy_errors = t.get_errors()
-        for err in deploy_errors:
-            logger.error(err)
-        logger.debug('Waited {}s to see deployment'.format(n_waits))
-        conn = connection.Connection(hwcode)
+        errors = t.get_errors()
+        self.assertEqual(len(errors) == 0)
+        # Send this project's bistream to an FPGA and launch a Vivado
+        # process to monitor it.
+        t, conn = p.send_to_fpga_and_monitor()
+        # Send commands to the FPGA
         handler = axi.ConnCommandHandler(conn)
         future_intCs, expected_intCs = self.send_commands(handler)
         # Futures are immediately resolved by ConnCommandHandler
+        # so we can check if they are correct.
         output_intCs = [f.result() for f in future_intCs]
         self.assertEqual(output_intCs, expected_intCs)
 

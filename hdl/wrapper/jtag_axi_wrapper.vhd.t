@@ -5,15 +5,15 @@ use ieee.std_logic_1164.all;
 
 use work.axi_utils.all;
 
-entity FileTestBench is
+entity JtagAxiWrapper is
   port (
     clk_in_n: in std_logic;
     clk_in_p: in std_logic;
     reset: in std_logic
     );
-end FileTestbench;
+end JtagAxiWrapper;
 
-architecture arch of FileTestbench is
+architecture arch of JtagAxiWrapper is
   -- Basic clk and reset signals
   signal resetn: std_logic;
   signal clk: std_logic;
@@ -121,8 +121,8 @@ begin
     port map (
       clk => clk,
       reset => reset,
-      i_config => m2s,
-      o_config => s2m
+      i => m2s,
+      o => s2m
       );
   
 end arch;

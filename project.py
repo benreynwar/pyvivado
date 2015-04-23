@@ -6,7 +6,8 @@ import json
 import hashlib
 import shutil
 
-from pyvivado import config, task, utils, interface, builder, redis_utils, sqlite_collection
+from pyvivado import config, task, utils, interface, builder, redis_utils
+from pyvivado import connection, sqlite_collection
 from pyvivado.hdl.wrapper import inner_wrapper, file_testbench, jtag_axi_wrapper
 
 logger = logging.getLogger(__name__)
@@ -271,6 +272,13 @@ class FPGAProject(BuilderProject):
         return p
 
     def send_to_fpga_and_monitor(self, fake=False):
+        # First kill any monitors connected to this project.
+        hwcode = True
+        while hwcode:
+            hwcode = connection.get_projdir_hwcode(self.directory)
+            if hwcode:
+                conn = connection.Connection(hwcode)
+                conn.kill_monitor()
         if fake:
             fake_int = 1
             description = 'Faking sending the project to fpga and monitoring.'
@@ -288,7 +296,26 @@ class FPGAProject(BuilderProject):
             tasks_collection=self.tasks_collection,
         )
         t.run()
-        return t
+        # Wait for the monitor to become available.
+        max_waits = 30
+        n_waits = 0
+        hwcode = None
+        while (hwcode is None) and (n_waits < max_waits) and (not t.is_finished()):
+            hwcode = connection.get_projdir_hwcode(self.directory)
+            n_waits += 1
+            time.sleep(1)
+        # If the task is finished something must have gone wrong
+        # so log it's messages.
+        if t.is_finished():
+            t.log_messages(t.get_messages())
+        deploy_errors = t.get_errors()
+        if (len(deploy_errors) != 0):
+            raise Exception('Got send_to_fpga_and_monitor errors.')
+        if hwcode is None:
+            raise Exception('Failed to deploy project')
+        logger.debug('Waited {}s to see deployment'.format(n_waits))
+        conn = connection.Connection(hwcode)
+        return t, conn
 
     def implement(self):
         t = task.VivadoTask.create(
