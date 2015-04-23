@@ -3,6 +3,7 @@ import logging
 
 from pyvivado import interface, signal, config, builder, utils
 from pyvivado.hdl.wrapper import dummy_wrapper
+from pyvivado.hdl import pyvivado_utils
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +43,12 @@ class InnerWrapperBuilder(builder.Builder):
             'clock_names': self.interface.clock_names,
             'packages': self.interface.packages,
         }
-        self.builders = [
-            dummy_wrapper.DummyWrapperBuilder(self.template_params),
+        if self.interface.needs_dummy:
+            self.builders = [
+                dummy_wrapper.DummyWrapperBuilder(self.template_params),
+            ]
+        self.packages = [
+            'pyvivado_utils',
         ]
         
     def get_filename(self, directory):
