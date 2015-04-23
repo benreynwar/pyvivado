@@ -12,17 +12,22 @@ logger = logging.getLogger(__name__)
 
 class TestSimpleModule(unittest.TestCase):
 
-    def test_pass_through(self):
+    def test_simulation(self):
         '''
         Tests that the inputs are passing straight through SimpleModule
         as expected.
         '''
-
-        directory = os.path.abspath('proj_testsimplemodule')
         data_width = 4
+        directory = os.path.abspath('proj_testsimplemodule')
         params = {
             'data_width': data_width,
         }
+        # Create project
+        interface = simple_module.get_simple_module_interface(params)
+        p = project.FileTestBenchProject.create_or_update(
+            interface=interface,
+            directory=directory,
+        )
 
         # Make input and expected data
         n_data = 20
@@ -41,15 +46,20 @@ class TestSimpleModule(unittest.TestCase):
             input_data.append(input_d)
             expected_data.append(expected_d)
 
-        # Create project
-        interface = simple_module.get_simple_module_interface(params)
-        p = project.FileTestBenchProject.create_or_update(
-            interface=interface,
-            directory=directory,
-        )
-
-        # Run the simulation
+        # Run the simulation and check that the output is correct.
         errors, output_data = p.run_simulation(input_data)
+        self.assertEqual(len(errors), 0)
+        self.check_output(output_data[1:], expected_data)
+
+        # Run a post-sythesis simulation.
+        errors, output_data = p.run_simulation(
+            input_data, sim_type='post_synthesis')
+        self.assertEqual(len(errors), 0)
+        self.check_output(output_data[1:], expected_data)
+
+        # Run a timing simulation.
+        errors, output_data = p.run_simulation(
+            input_data, sim_type='timing')
         self.assertEqual(len(errors), 0)
         self.check_output(output_data[1:], expected_data)
 
@@ -58,7 +68,7 @@ class TestSimpleModule(unittest.TestCase):
         output_data = output_data[:len(expected_data)]
         testfixtures.compare(output_data, expected_data)
         
-        
+
 if __name__ == '__main__':
     config.setup_logging(logging.WARNING)
     unittest.main()

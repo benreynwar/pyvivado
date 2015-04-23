@@ -110,7 +110,7 @@ proc ::pyvivado::open_and_implement {proj_dir} {
 }
 
 proc ::pyvivado::run_hdl_simulation {proj_dir runtime} {
-    set sim_dir "${proj_dir}/TheProject.sim/sim_1"
+    set sim_dir "${proj_dir}/TheProject.sim/sim_1/behav"
     set sim_dir_exists [file isdirectory $sim_dir]
     if {$sim_dir_exists == 1} {
 	set_property skip_compilation 1 [get_filesets sim_1]
@@ -121,24 +121,42 @@ proc ::pyvivado::run_hdl_simulation {proj_dir runtime} {
     }
     set_property xsim.simulate.runtime $runtime [get_filesets sim_1]
     puts "DEBUG: About to run_hdl_simulation and pwd is [pwd]"
-    launch_xsim -simset sim_1 -mode behavioral
+    launch_simulation -simset sim_1 -mode behavioral
 }
 
 
 
-proc ::pyvivado::run_post_synthesis_simulation {runtime} {
+proc ::pyvivado::run_post_synthesis_simulation {proj_dir runtime} {
     set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY none [get_runs synth_1]
     ::pyvivado::synthesize
+    set sim_dir "${proj_dir}/TheProject.sim/sim_1/synth"
+    set sim_dir_exists [file isdirectory $sim_dir]
+    if {$sim_dir_exists == 1} {
+	set_property skip_compilation 1 [get_filesets sim_1]
+	puts "DEBUG: Skipping test compilation."
+    } else {
+	set_property skip_compilation 0 [get_filesets sim_1]
+	puts "DEBUG: Not skipping test compilation."
+    }
     set_property xsim.simulate.runtime $runtime [get_filesets sim_1]
     puts "DEBUG: About to run_post_synthesis_simulation and pwd is [pwd]"
-    launch_xsim -simset sim_1 -mode post-synthesis -type functional
+    launch_simulation -simset sim_1 -mode post-synthesis -type functional
 }
 
-proc ::pyvivado::run_timing_simulation {runtime} {
+proc ::pyvivado::run_timing_simulation {proj_dir runtime} {
     ::pyvivado::implement_without_bitstream
+    set sim_dir "${proj_dir}/TheProject.sim/sim_1/impl"
+    set sim_dir_exists [file isdirectory $sim_dir]
+    if {$sim_dir_exists == 1} {
+	set_property skip_compilation 1 [get_filesets sim_1]
+	puts "DEBUG: Skipping test compilation."
+    } else {
+	set_property skip_compilation 0 [get_filesets sim_1]
+	puts "DEBUG: Not skipping test compilation."
+    }
     set_property xsim.simulate.runtime $runtime [get_filesets sim_1]
     puts "DEBUG: About to run_timing_simulation and pwd is [pwd]"
-    launch_xsim -simset sim_1 -mode post-implementation -type timing
+    launch_simulation -simset sim_1 -mode post-implementation -type timing
 }
 
 proc ::pyvivado::send_to_fpga_and_monitor {proj_dir hwcode} {
