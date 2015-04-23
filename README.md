@@ -33,4 +33,11 @@ Currently the only supported method of communication between the host computer a
  - [Redis](http://redis.io) acting as an intermediary between the Vivado and python processes.
  - The python process.
 
-This sounds convoluted, and it is!
+This sounds unnecessarily convoluted, and it is!  The use of Redis for example, could be replaced by use of the filesystem, which would be simpler and work much better.
+
+For an example project see [axi\_adder.vhd](hdl/test/axi_adder.vhd) which is a module with an AXI4Lite interface.  It has 4 registers, the first two of which are read/write while the third and fourth are read only.  Reading the third register returns the sum of the first two registers.  The fourth register returns whether the module is in error.
+
+In [axi\_adder.py](hdl/test/axi_adder.py) the ``AxiAdderBuilder`` and ``get_axi_adder_interface`` are defined, along with ``AxiAdderComm``.  ``AxiAdderComm`` is responsible for providing a python interface to the AXI4Lite interface of the module.  In this case, the interface consists of the methods ``add_numbers``, which adds two numbers by writing them to the first two registers and then reading the third, and ``had_error`` which returns a boolean indicating whether the module is in error.
+
+[qa\_axi\_adder.py](hdl/test/qa_axi_adder.py) tests our ``axi_adder`` module both with a HDL simulation and by deploying the module to an FPGA and communicating with the FPGA over JTAG.  A set of commands for the module is generated using the ``AxiAdderComm`` object and these same commands are run on the simulation and on the deployed bitstream.
+
