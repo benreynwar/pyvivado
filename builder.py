@@ -49,7 +49,6 @@ class Builder(object):
         if self.package_name is not None:
             _id = self.package_name
         else:
-            logger.debug(self)
             _id = (self.__class__, make_hashable(self.params))
         return _id
 

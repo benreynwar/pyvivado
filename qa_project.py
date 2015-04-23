@@ -76,7 +76,7 @@ class TestProject(unittest.TestCase):
             shutil.rmtree(dn)
         os.makedirs(dn)
         builder = testA.TestABuilder({'data_width': 4, 'array_length': 3})
-        p = project.FPGAProject.create(the_builder=builder, parameters={}, directory=dn)
+        p = project.FPGAProject.create_or_update(the_builder=builder, parameters={}, directory=dn)
         # Start a fake monitor of redis
         hwcode = 'fake_hwcode'
         t = p.fake_monitor(hwcode)

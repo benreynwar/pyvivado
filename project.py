@@ -169,8 +169,9 @@ class BuilderProject(Project):
             
 
     @classmethod
-    def delete_if_changed(cls, design_builders, simulation_builders, parameters,
-                          directory):
+    def delete_if_changed(cls, design_builders, simulation_builders, parameters, directory,
+               tasks_collection=None, part='', board='', top_module='',
+               factory_name=None):
         if os.path.exists(directory):
             # Check that project file exists
             if not os.path.exists(os.path.join(directory, 'TheProject.xpr')):
@@ -192,7 +193,10 @@ class BuilderProject(Project):
             
     @classmethod
     def create(cls, design_builders, simulation_builders, parameters, directory,
-               tasks_collection=None, part='', board='', top_module=''):
+               tasks_collection=None, part='', board='', top_module='',
+               factory_name=None):
+        if factory_name:
+            cls.write_params(parameters, factory_name, directory)
         design_requirements = builder.build_all(
             directory, top_builders=design_builders, top_params=parameters)
         simulation_requirements = builder.build_all(
@@ -231,18 +235,38 @@ class BuilderProject(Project):
 class FPGAProject(BuilderProject):
 
     @classmethod
-    def create(cls, the_builder, parameters, directory,
-               tasks_collection=None,
-               part='', board=''):
-        p = super().create(
-            directory=directory,
-            design_builders=[the_builder],
-            simulation_builders=[],
-            parameters=parameters,
-            tasks_collection=tasks_collection,
-            board=board,
-            part=part,
-        )
+    def make_parent_params(
+            cls, the_builder, parameters, directory,
+            tasks_collection=None, part='', board=''):
+        return {
+            'design_builders': [the_builder],
+            'simulation_builders': [],
+            'parameters': parameters,
+            'directory': directory,
+            'tasks_collection': tasks_collection,
+            'part': part,
+            'board': board,
+        }
+
+    @classmethod
+    def create_or_update(
+            cls, the_builder, parameters, directory,
+            tasks_collection=None, part='', board=''):
+        parent_params = cls.make_parent_params(
+            the_builder=the_builder, parameters=parameters, directory=directory,
+            tasks_collection=tasks_collection, part=part, board=board)
+        if os.path.exists(directory):
+            cls.delete_if_changed(**parent_params)
+        if os.path.exists(directory):
+            logger.debug('Using old Project.')
+            p = cls(directory=directory, tasks_collection=tasks_collection)
+        else:
+            logger.debug('Making new Project.')
+            os.makedirs(directory)
+            p = super().create(**parent_params)
+            t = p.wait_for_most_recent_task()
+            errors = t.get_errors()
+            assert(len(errors) == 0)
         return p
 
     def fake_monitor(self, hwcode):
@@ -287,70 +311,46 @@ class FPGAProject(BuilderProject):
 class FileTestBenchProject(BuilderProject):
 
     @classmethod
-    def delete_if_changed(cls, interface, directory):
+    def make_parent_params(cls, interface, directory, tasks_collection=None,
+                           part='', board=''):
         inner_wrapper_builder = inner_wrapper.InnerWrapperBuilder({
             'interface': interface,
         })
         file_testbench_builder = file_testbench.FileTestbenchBuilder({
             'interface': interface,
         })
-        super().delete_if_changed(
-            directory=directory,
-            design_builders=[inner_wrapper_builder, interface.builder],
-            simulation_builders=[file_testbench_builder],
-            parameters=interface.parameters,
-        )
-
-    
-
+        return {
+            'design_builders': [inner_wrapper_builder, interface.builder],
+            'simulation_builders': [file_testbench_builder],
+            'parameters': interface.parameters,
+            'directory': directory,
+            'tasks_collection': tasks_collection,
+            'part': part,
+            'board': board,
+            'top_module': 'FileTestBench',
+            'factory_name': interface.factory_name,
+        }
+            
     @classmethod
-    def create_or_update(cls, interface, directory,
-               tasks_collection=None,
-               part='', board=''):
+    def create_or_update(cls, interface, directory, tasks_collection=None,
+                         part='', board=''):
+        parent_params = cls.make_parent_params(
+            interface=interface, directory=directory,
+            tasks_collection=tasks_collection, part=part, board=board)
         if os.path.exists(directory):
-            cls.delete_if_changed(interface=interface, directory=directory)
+            super().delete_if_changed(**parent_params)
         if os.path.exists(directory):
             logger.debug('Using old Project.')
             p = cls(directory=directory, tasks_collection=tasks_collection)
         else:
             logger.debug('Making new Project.')
             os.makedirs(directory)
-            p = cls.create(
-                interface=interface,
-                directory=directory,
-                tasks_collection=tasks_collection,
-                part=part,
-                board=board,
-            )
+            p = super().create(**parent_params)
             t = p.wait_for_most_recent_task()
             errors = t.get_errors()
             assert(len(errors) == 0)
         return p
                 
-
-    @classmethod
-    def create(cls, interface, directory,
-               tasks_collection=None,
-               part='', board=''):
-        inner_wrapper_builder = inner_wrapper.InnerWrapperBuilder({
-            'interface': interface,
-        })
-        file_testbench_builder = file_testbench.FileTestbenchBuilder({
-            'interface': interface,
-        })
-        cls.write_params(interface.parameters, interface.factory_name, directory)
-        p = super().create(
-            directory=directory,
-            design_builders=[inner_wrapper_builder, interface.builder],
-            simulation_builders=[file_testbench_builder],
-            tasks_collection=tasks_collection,
-            board=board,
-            part=part,
-            top_module='FileTestBench',
-            parameters=interface.parameters,
-        )
-        return p
-
     def __init__(self, directory, tasks_collection=None):
         self.input_filename = os.path.join(directory, 'input.data')
         self.output_filename = os.path.join(directory, 'output.data')
