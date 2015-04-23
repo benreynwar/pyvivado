@@ -28,11 +28,10 @@ architecture arch of axi_adder is
   signal had_error: std_logic;
 begin
 
+  intC <= resize(intA, 17) + resize(intB, 17);
+    
   process(clk)
   begin
-
-    intC <= resize(intA, 17) + resize(intB, 17);
-    
     if rising_edge(clk) then
       o <= DEFAULT_AXI4LITE_S2M;
       if reset = '1' then
