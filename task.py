@@ -149,23 +149,24 @@ close $fileId
     def run(self):
         cwd = os.getcwd()
         os.chdir(self.directory)
-        stdout_fn = 'stdout.txt' #os.path.join(self.directory, 'stdout.txt')
-        stderr_fn = 'stderr.txt' #os.path.join(self.directory, 'stderr.txt')
-        command_fn = 'command.tcl' #os.path.join(self.directory, 'command.tcl')        
-        commands = [config.vivado, '-mode', 'batch', '-source', command_fn]
+        stdout_fn = 'stdout.txt' 
+        stderr_fn = 'stderr.txt' 
+        command_fn = 'command.tcl' 
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
             DETACHED_PROCESS = 8
             if os.name == 'nt':
+                commands = [config.vivado, '-log', stdout_fn, '-mode', 'batch',
+                            '-source', command_fn]
                 p = subprocess.Popen(
                     commands,
                     # So that process stays alive when terminal is closed
                     # in Windows.
                     creationflags=DETACHED_PROCESS,
-                    stdout=open(stdout_fn, 'w'),
-                    stderr=open(stderr_fn, 'w'),
                 )
             else:
+                commands = [config.vivado, '-mode', 'batch', '-source',
+                            command_fn]
                 p = subprocess.Popen(
                     commands,
                     stdout=open(stdout_fn, 'w'),
@@ -232,9 +233,13 @@ close $fileId
         return lines
 
     def get_stderr(self):
-        stdout_fn = os.path.join(self.directory, 'stderr.txt')
-        with open(stdout_fn, 'r') as f:
-            lines = f.readlines()
+        stderr_fn = os.path.join(self.directory, 'stderr.txt')
+        # We don't write this file in Windows.
+        if os.path.exists(stderr_fn):
+            with open(stderr_fn, 'r') as f:
+                lines = f.readlines()
+        else:
+            lines = []
         return lines        
 
     def is_finished(self):
