@@ -22,6 +22,9 @@ See files [axi\_adder.vhd](hdl/test/axi_adder.vhd),
 [axi\_adder.py](hdl/test/axi_adder.py) and
 [qa_axi\_adder.py](hdl/test/qa_axi_adder.py) for a more complex example.
 
+See [github.com/benreynwar/rfgnocchi](https://github.com/benreynwar/rfgnocchi) for
+even more examples.
+
 Edit the file [config.py](config.py).  Check that the ``vivado``
 variable is pointing at your vivado executable.  Modify ``hwcodes`` so
 that it contains the hardware codes of the Xilinx devices you have
@@ -85,21 +88,13 @@ def get_simple_module_interface(params):
     iface = interface.Interface(
         wires_in, wires_out, module_name='SimpleModule',
         parameters=params, builder=SimpleModuleBuilder({}),
-	module_parameters={'DATA_WIDTH': params['data_width']},
+        module_parameters={'DATA_WIDTH': params['data_width']},
 	)
     return iface
 ```
 
 Write tests in Python 
 ---------------------
-Writing verification tests in a HDL can be cumbersome.  *pyvivado*
-makes it easy to write python unittests that compare the expected
-output from a Vivado simulation with the actual output.  The
-generation of VHDL wrappers and the creation of the Vivado projects is
-automated.  Projects and simulation executables are only updated when
-their contents are modified.  When errors are encountered during
-testing it is easy to open up the project in a Vivado GUI and take
-advantage of the debugging tools it offers.
 
 Create a new testbench project that reads and writes inputs and outputs
 from files.  The DUT is defined by the ``interface`` that is passed in.
@@ -130,7 +125,8 @@ errors, output_data = p.run_simulation(input_data)
 ```
 
 We can now confirm that we did not get any errors and that the output data
-matched our expectations.
+matched our expectations.  If we find a bug it's easy to open up the project
+in the Vivado GUI to see what went wrong.
 
 Deploy using Python
 -------------------
