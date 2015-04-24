@@ -159,4 +159,12 @@ conn.write(address=0, data=[1,2])
 conn.read(address=0, length=2)
 ```
 
+Disclaimer
+----------
 
+This is basically a collection of utilities that I've written to speed
+up my HDL development (which I'm pretty new to).  There are almost
+certainly still hardcoded tweaks in here that are specific to my use
+cases and the boards I'm using.  I would like to make it more
+generally useful, but for now, there will almost certainly be some
+pain to start off with.  Please let me know of problems you run into!
