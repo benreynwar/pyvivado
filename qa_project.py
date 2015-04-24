@@ -70,26 +70,6 @@ class TestProject(unittest.TestCase):
             logger.error(error)
         self.assertTrue(len(errors) == 0)
 
-    def test_monitor(self):
-        dn = os.path.join(config.testdir, 'proj_testmonitor')
-        if os.path.exists(dn):
-            shutil.rmtree(dn)
-        os.makedirs(dn)
-        builder = testA.TestABuilder({'data_width': 4, 'array_length': 3})
-        p = project.FPGAProject.create_or_update(the_builder=builder, parameters={}, directory=dn)
-        # Start a fake monitor of redis
-        hwcode = 'fake_hwcode'
-        t = p.fake_monitor(hwcode)
-        # Connect to fake monitor over redis, write some data
-        conn = redis_connection.Connection(hwcode)
-        response = conn.read(0, 1)
-        self.assertEqual(response, [0])
-        self.assertEqual(t.get_current_state(), 'RUNNING')
-        # and kill the monitor.
-        conn.kill_monitor()
-        time.sleep(1)
-        self.assertEqual(t.get_current_state(), 'FINISHED_OK')
-
 if __name__ == '__main__':
     config.setup_logging(logging.DEBUG)
     unittest.main()

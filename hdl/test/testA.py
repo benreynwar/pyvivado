@@ -35,7 +35,7 @@ class TestABuilder(builder.Builder):
     
     def __init__(self, params):
         super().__init__(params)
-        module_name = 'TestA'
+        self.module_name = 'TestA'
         self.simple_filenames = [
             os.path.join(config.hdldir, 'test', 'testA.vhd'),
         ]
