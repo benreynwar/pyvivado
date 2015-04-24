@@ -16,6 +16,7 @@ class SimpleModuleBuilder(builder.Builder):
     
     def __init__(self, params):
         super().__init__(params)
+        module_name = 'SimpleModule'
         self.simple_filenames = [
             os.path.join(config.hdldir, 'test', 'simple_module.vhd'),
         ]

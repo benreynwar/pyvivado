@@ -75,7 +75,8 @@ class TestAxiAdder(unittest.TestCase):
         output_intCs = [f.result() for f in future_intCs]
         self.assertEqual(output_intCs, expected_intCs)
 
-
+    @unittest.skipIf(connection.get_free_hwcode() is None,
+                     "No available hardware")
     def test_on_fpga(self):
         random.seed(1)
         directory = os.path.abspath('proj_testaxiadderfpga')

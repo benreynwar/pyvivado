@@ -17,8 +17,6 @@ default_part = 'xc7k70tfbg676-1'
 default_board = ''
 
 hwcodes = [
-    'dummyA',
-    'dummyB',
 ]
 # Real hardware codes look something like '210203826421A'
 

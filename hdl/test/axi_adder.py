@@ -12,6 +12,7 @@ class AxiAdderBuilder(builder.Builder):
 
     def __init__(self, params):
         super().__init__(params)
+        module_name = 'axi_adder'
         self.simple_filenames = [
             os.path.join(config.hdldir, 'test', 'axi_adder.vhd'),
         ]
