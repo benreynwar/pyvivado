@@ -27,6 +27,69 @@ variable is pointing at your vivado executable.  Modify ``hwcodes`` so
 that it contains the hardware codes of the Xilinx devices you have
 connected.
 
+Creating a New Module
+---------------------
+
+Define the module using VHDL or Verilog just like normal.  In this
+example we have two wires passing straight through the module.
+
+```vhdl
+library ieee;
+use ieee.std_logic_1164.all;
+
+entity SimpleModule is
+  generic (
+    DATA_WIDTH: positive
+    );
+  port (
+    i_valid: in std_logic;
+    i_data: in std_logic_vector(DATA_WIDTH-1 downto 0);
+    o_valid: out std_logic;
+    o_data: out std_logic_vector(DATA_WIDTH-1 downto 0)
+    );
+end SimpleModule;
+
+architecture arch of SimpleModule is
+begin
+  o_valid <= i_valid;
+  o_data <= i_data;
+end arch;
+```
+
+Then create a python object that can generate or specify the required
+files and IP (in this case it's pretty simple).
+
+```python
+class SimpleModuleBuilder(builder.Builder):
+    
+    def __init__(self, params):
+        super().__init__(params)
+        self.simple_filenames = [
+            os.path.join(config.hdldir, 'test', 'simple_module.vhd'),
+        ]
+```
+        
+Then create a python function that generates an `interface`.  This is the
+information necessary for *pyvivado* to create wrappers for the DUT.
+
+```python
+def get_simple_module_interface(params):
+    wires_in = (
+        ('i_valid', signal.std_logic_type),
+        ('i_data', signal.StdLogicVector(width=data_width)),
+    )
+    wires_out = (
+        ('o_valid', signal.std_logic_type),
+        ('o_data', signal.StdLogicVector(width=data_width)),
+    )
+    iface = interface.Interface(
+        wires_in, wires_out, module_name='SimpleModule',
+        parameters=params, builder=SimpleModuleBuilder({}),
+	module_parameters={'DATA_WIDTH': params['data_width']},
+	)
+    return iface
+```
+
 Write tests in Python 
 ---------------------
 Writing verification tests in a HDL can be cumbersome.  *pyvivado*
