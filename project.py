@@ -248,6 +248,7 @@ class FPGAProject(BuilderProject):
             'tasks_collection': tasks_collection,
             'part': part,
             'board': board,
+            'factory_name': the_builder.module_name,
         }
 
     @classmethod
