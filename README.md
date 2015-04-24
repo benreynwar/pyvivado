@@ -1,43 +1,99 @@
 pyvivado
 ========
 
-A python toolbox for generation, testing and deployment of Xilinx Vivado projects.
+A python toolbox for generation, testing and deployment of Xilinx
+Vivado projects.
 
  - Write modules in VHDL or Verilog.
  - Define module dependencies and interfaces using python.
  - Define tests in python.
- - Generate Vivado projects to test modules.
- - Deploy projects to FPGA from python.
- - Communicate with FPGA using python.
+ - Automate generation of Vivado projects.
+ - Communicate easily with FPGA-deployed modules from python.
 
 Quick Start
 -----------
-See files [simple\_module.vhd](hdl/test/simple_module.vhd), [simple\_module.py](hdl/test/simple_module.py) and [qa_simple\_module.py](hdl/test/qa_simple_module.py) for examples of what testing with *pyvivado* looks like.
 
-Edit the file [config.py](config.py).
-Check that the ``vivado`` variable is pointing at your vivado executable.
-Modify ``hwcodes`` so that it contains the hardware codes of the Xilinx devices you have connected.  You can find the hardware codes by looking at the hardware manager in Vivado.
+See files [simple\_module.vhd](hdl/test/simple_module.vhd),
+[simple\_module.py](hdl/test/simple_module.py) and
+[qa_simple\_module.py](hdl/test/qa_simple_module.py) for examples of
+what using *pyvivado* looks like.
 
-Testing
--------
-The idea is that you write your module in Verilog or VHDL like normal, but take advantage of python to make verification less painful.  A separate Vivado project is created for each test case and when the test suite is run projects whose dependencies have been modified are regenerated and the simulations recompiled.  When dependencies are unaltered the projects and simulation executables are not regenerated, however the simulations are still run since the input data may have changed. Running a test suite is still a painfully slow process, but less so.
+Edit the file [config.py](config.py).  Check that the ``vivado``
+variable is pointing at your vivado executable.  Modify ``hwcodes`` so
+that it contains the hardware codes of the Xilinx devices you have
+connected.
 
-Because Vivado projects have been created, when encountering an error during testing it is easy to open up the project in a Vivado GUI and take advantage of the debugging tools it offers.
+Write tests in Python 
+---------------------
+Writing verification tests in a HDL can be cumbersome.  *pyvivado*
+makes it easy to write python unittests that compare the expected
+output from a Vivado simulation with the actual output.  The
+generation of VHDL wrappers and the creation of the Vivado projects is
+automated.  Projects and simulation executables are only updated when
+their contents are modified.  When errors are encountered during
+testing it is easy to open up the project in a Vivado GUI and take
+advantage of the debugging tools it offers.
 
-Deployment and Communication
-----------------------------
-Currently the only supported method of communication between the host computer and the FPGA is through the JTAG-to-AXI Xilinx block.  This is very slow and is not suitable for any application that requires more that afew kB going back and forth.  We have the following items in the communication chain.
+Create a new testbench project that reads and writes inputs and outputs
+from files.  The DUT is defined by the ``interface`` that is passed in.
 
- - FPGA design via JTAG-to-AXI block.
- - Vivado process communicating with FPGA via ``create_hw_axi_txn``.
- - [Redis](http://redis.io) acting as an intermediary between the Vivado and python processes.
- - The python process.
+```python
+p = project.FileTestBenchProject.create_or_update(
+    interface=get_simple_module_interface({data_width: 4})
+    directory=os.path.abspath('new_project'),
+)
+```
 
-This sounds unnecessarily convoluted, and it is!  The use of Redis for example, could be replaced by use of the filesystem, which would be simpler and work much better.
+Define some input data for the DUT.
 
-For an example project see [axi\_adder.vhd](hdl/test/axi_adder.vhd) which is a module with an AXI4Lite interface.  It has 4 registers, the first two of which are read/write while the third and fourth are read only.  Reading the third register returns the sum of the first two registers.  The fourth register returns whether the module is in error.
+```python
+input_data = []
+for i in range(100):
+    input_data.append({
+        'i_valid': random.randint(0, 1),
+        'i_data': random.randint(0, max_data),
+    })
+```
 
-In [axi\_adder.py](hdl/test/axi_adder.py) the ``AxiAdderBuilder`` and ``get_axi_adder_interface`` are defined, along with ``AxiAdderComm``.  ``AxiAdderComm`` is responsible for providing a python interface to the AXI4Lite interface of the module.  In this case, the interface consists of the methods ``add_numbers``, which adds two numbers by writing them to the first two registers and then reading the third, and ``had_error`` which returns a boolean indicating whether the module is in error.
+Run a HDL simulation of the DUT with the specified input data.
+*pyvivado* takes care of generating the input file and parsing the output file.
 
-[qa\_axi\_adder.py](hdl/test/qa_axi_adder.py) tests our ``axi_adder`` module both with a HDL simulation and by deploying the module to an FPGA and communicating with the FPGA over JTAG.  A set of commands for the module is generated using the ``AxiAdderComm`` object and these same commands are run on the simulation and on the deployed bitstream.
+```python  
+errors, output_data = p.run_simulation(input_data)
+```
+
+We can now confirm that we did not get any errors and that the output data
+matched our expectations.
+
+Deploy using Python
+-------------------
+
+Create a project based upon a DUT with an Axi4Lite interface.
+The module is wrapped in the Xilinx JTAG-to-AXI block which handles
+communication with the host computer (this works fine for low data rates).
+
+```python
+p = project.FPGAProject.create_or_update(
+    the_builder=axi_adder.AxiAdderBuilder({}),
+    parameters={'top_name': 'axi_adder', 'frequency': 100},
+    directory=os.path.abspath('proj_testaxiadderfpga'),
+)
+```
+
+Implement the project, deploy it to the FPGA, and spawn a Vivado process
+to communicate with it.
+
+```python
+t_impl = p.implement()
+t_impl.wait()
+t_monitor, conn = p.send_to_fpga_and_monitor()
+```
+
+Send AXI commands to the FPGA via the monitoring Vivado process.
+
+```python
+conn.write(address=0, data=[1,2])
+conn.read(address=0, length=2)
+```
+
 
