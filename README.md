@@ -18,6 +18,10 @@ See files [simple\_module.vhd](hdl/test/simple_module.vhd),
 [qa_simple\_module.py](hdl/test/qa_simple_module.py) for examples of
 what using *pyvivado* looks like.
 
+See files [axi\_adder.vhd](hdl/test/axi_adder.vhd),
+[axi\_adder.py](hdl/test/axi_adder.py) and
+[qa_axi\_adder.py](hdl/test/qa_axi_adder.py) for a more complex example.
+
 Edit the file [config.py](config.py).  Check that the ``vivado``
 variable is pointing at your vivado executable.  Modify ``hwcodes`` so
 that it contains the hardware codes of the Xilinx devices you have
