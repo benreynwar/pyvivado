@@ -1,14 +1,22 @@
+'''
+Python tools for creating and parsing AXI communications.
+'''
+
 import asyncio
 
 from pyvivado import signal
 
+# `Comm` objects are registered here by the name of the module they are
+# responsible for communicating with.
 module_register = {}
 
+# Response code for AXI.
 OKAY = 0
 EXOKAY = 1
 SLVERR = 2
 DECERR = 3
 
+# Define a record type for Master-to-Slave AXI
 axi4lite_m2s_type = signal.Record(
     contained_types=(
         ('araddr', signal.StdLogicVector(width=32)),
@@ -26,6 +34,7 @@ axi4lite_m2s_type = signal.Record(
     name='axi4lite_m2s',
 )
 
+# Define a record type for Slave-to-Master AXI
 axi4lite_s2m_type = signal.Record(
     contained_types=(
         ('arready', signal.std_logic_type),
@@ -41,6 +50,9 @@ axi4lite_s2m_type = signal.Record(
 )
 
 def make_empty_axi4lite_m2s_dict():
+    '''
+    Creates and empty master-to-slave AXI dictionary.
+    '''
     return {
         'araddr': 0,
         'arprot': None,
@@ -55,7 +67,11 @@ def make_empty_axi4lite_m2s_dict():
         'wvalid': 0,
     }
 
+
 def make_empty_axi4lite_s2m_dict():
+    '''
+    Creates and empty slave-to-master AXI dictionary.
+    '''
     return {
         'arready': 1,
         'awready': 1,
@@ -68,16 +84,32 @@ def make_empty_axi4lite_s2m_dict():
     }
 
     
+# Used to define whether AXI command are reading or writing.
 READ_TYPE = 'READ'
 WRITE_TYPE = 'WRITE'
 
 
 class ConnCommandHandler(object):
+    '''
+    This handler receives `CommCommand` objects and sends their AXI
+    commands over the passed in `Connection`.  The responses are
+    then processed by the `CommCommand` object that send them.
+
+    This handler is useful to simplify communication with the FPGA.
+    '''
 
     def __init__(self, conn):
+        '''
+        `conn`: A `Connection` object that the handler uses to communicate
+                with the FPGA.
+        '''
         self.conn = conn
 
     def send(self, commands):
+        '''
+        Sends a list of `commands` where are CommCommand objects to the FPGA
+        and processes the responses.
+        '''
         for command in commands:
             rs = []
             for ac in command.axi_commands:
@@ -96,7 +128,17 @@ class ConnCommandHandler(object):
                 rs.append(r)
             command.process_response((None, rs))
 
+
 class DictCommandHandler(object):
+    '''
+    This handler receives `CommCommand` objects and stores them.
+    When the `make_command_dicts` method is called the handler returns
+    a list of AXI master-to-slave dictionaries that specify the commands.
+    It can also parse the output AXI slave-to-master dictionaries from
+    a simulation.
+
+    This handler is useful to fake communication when running simulations.
+    '''
     
     def __init__(self):
         self.unsent_commands = []
@@ -106,6 +148,11 @@ class DictCommandHandler(object):
         self.unsent_commands += commands
 
     def make_command_dicts(self):
+        '''
+        Generates slave-to-master AXI dictionaries from the CommCommands
+        that have been given to the handler.  These dictionaries can
+        be passed as input to simluations.
+        '''
         ds = []
         while self.unsent_commands:
             command = self.unsent_commands.pop(0)
@@ -132,6 +179,15 @@ class DictCommandHandler(object):
         return ds
 
     def consume_response_dicts(self, ds):
+        '''
+        Takes a list of slave-to-master dictionaries obtained from
+        a simulation and processes them using the 'CommCommand' objects
+        that sent them.
+
+        If their was a bug in the AXI communication (i.e. no response
+        when their should have been), then things can get out of sync,
+        and the wrong 'CommCommand' objects will process the wrong responses.
+        '''
         for command in self.sent_commands:
             results = []
             first_e = None
@@ -143,8 +199,7 @@ class DictCommandHandler(object):
                     r = None
                     while r is None:
                         if len(ds) == 0:
-                            import pdb
-                            pdb.set_trace()
+                            raise Exception('DictCommandHandler is out of sync.  Probably a bug in the AXI communication.')
                         d = ds.pop(0)
                         r = None
                         if ac.readorwrite == READ_TYPE:
@@ -173,10 +228,22 @@ class DictCommandHandler(object):
                 results.append(result)
             command.process_response((first_e, results))
 
+
 class AxiCommand(object):
+    '''
+    Defines a series AXI4Lite master-to-slave commands.
+    '''
 
     def __init__(self, start_address, length, readorwrite, data=None,
                  constant_address=False):
+        '''
+        `start_address`: The address on which the first AXI command operates.
+        `constant_address`: If this is `True` we keep operating on the same
+             address, otherwise we increment.
+        `length`: The number of commands.
+        `readorwrite`: Can be either `READ_TYPE` or `WRITE_TYPE`.
+        'data': A list of integers to send (if it is a write command).
+        '''
         max_address = pow(2, 32-1)
         self.start_address = start_address
         self.length = length
@@ -194,14 +261,38 @@ class AxiCommand(object):
     
         
 class CommCommand(object):
+    '''
+    Defines a list of `AXICommand`s along with methods to
+    parse the response.
+    '''
 
     def __init__(self):
+        # The futures attibute is populated with the result when
+        # it is processed.
+        # See asynio for details on futures.  But basically
+        # future.done() tells you if it is finished and
+        # future.result() will give you the result.
+        
+        # We use futures here so that we can create and send commands
+        # but not expect to receive results immediately.  This is 
+        # particularly useful during simulation when we create and
+        # send all the commands before the simulation starts. But
+        # obviously can't process the responses until after the 
+        # simulation is finished.
         self.future = asyncio.Future()
 
     def process_result(self, result):
+        '''
+        Processes the results from the AXI commands and returns
+        an (Exception, result) Tuple.
+        '''
         return None, result
 
     def process_response(self, response):
+        '''
+        Takes an (Exception, result) tuple and sets the exception
+        and result on the future.
+        '''
         e, result = response
         if e is not None:
             self.future.set_exception(e)
@@ -213,6 +304,9 @@ class CommCommand(object):
                 self.future.set_result(processed_result)
 
     def set_unsigneds_commands(self, values, address, constant_address=False):
+        '''
+        Create `AxiCommand`s for writing unsigned integers.
+        '''
         for value in values:
             assert(value < pow(2, 32))
         command = AxiCommand(
@@ -225,6 +319,9 @@ class CommCommand(object):
         return [command]
 
     def get_unsigneds_commands(self, address, length=1, constant_address=False):
+        '''
+        Create `AxiCommand`s for reading unsigned integers.
+        '''
         command = AxiCommand(
             start_address=address,
             length=length,
@@ -234,15 +331,28 @@ class CommCommand(object):
         return [command]
 
     def set_unsigned_commands(self, value, address):
+        '''
+        Create `AxiCommand`s for writing an unsigned integer.
+        '''
         return self.set_unsigneds_commands(values=[value], address=address)
 
     def trigger_commands(self, address):
+        '''
+        Create `AxiCommand`s for writing a 0 to an address.  This
+        is used as a trigger sometimes.
+        '''
         return self.set_unsigned_commands(0, address)
 
     def get_unsigned_commands(self, address):
+        '''
+        Create `AxiCommand`s for reading an unsigned integer.
+        '''
         return self.get_unsigneds_commands(address, length=1)
 
     def get_boolean_commands(self, address):
+        '''
+        Create `AxiCommand`s for reading a boolean.
+        '''
         command = AxiCommand(
             start_address=address,
             length=1,
@@ -250,6 +360,9 @@ class CommCommand(object):
         return [command]
 
     def process_get_boolean(self, result):
+        '''
+        Process a response from reading a boolean.
+        '''
         e = None
         r = None
         if result == 1:
@@ -262,6 +375,9 @@ class CommCommand(object):
         return e, r
 
     def set_boolean_commands(self, value, address):
+        '''
+        Create `AxiCommand`s for writing a boolean.
+        '''
         assert(value in (True, False))
         if value:
             data = [1]
@@ -277,11 +393,17 @@ class CommCommand(object):
 
 
 class FakeWaitCommand(CommCommand):
+    '''
+    This is used when we're sending commands to a simulation.
+    The `DictCommandHandler` translates it into a bunch of empty
+    master-to-slave dictionaries.
+    '''
     
     def __init__(self, clock_cycles):
         super().__init__()
         self.clock_cycles = clock_cycles
         self.axi_commands = []
+
 
 class GetBooleanCommand(CommCommand):
 
@@ -328,6 +450,12 @@ class TriggerCommand(CommCommand):
 
 
 class CombinedCommands(CommCommand):
+    '''
+    Collects a number of `CommCommand` objects into a single one.
+
+    The result returns is a list of the results of the contained
+    `CommCommand` objects.
+    '''
 
     def __init__(self, commands):
         super().__init__()
@@ -351,6 +479,10 @@ class CombinedCommands(CommCommand):
             
 
 class Comm(object):
+    '''
+    Subclasses of this create python interfaces for specific module
+    that create `CommCommand`s to send to a communications handler.
+    '''
 
     def fake_wait(self, clock_cycles):
         command = FakeWaitCommand(clock_cycles=clock_cycles)
