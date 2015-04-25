@@ -4,7 +4,11 @@ import inspect
 
 logger = logging.getLogger(__name__)
 
+# `Builder` objects are registered here.
+# They are registered as a package if they take top level parameters
+# (i.e. the set of parameters that specify the whole design).
 package_register = {}
+# They are registered as modules if they take more local parameters.
 module_register = {}
 
 def make_hashable(d):
@@ -35,17 +39,42 @@ def make_hashable(d):
         h = d
     return h
 
+
 class Builder(object):
+    '''
+    Responsible for generating and specifying the files and IPs
+    required for a module.
+    
+    Each module creates a subclass of this.
+    '''
 
     def __init__(self, params, package_name=None):
+        '''
+        `params`: The parameters necessary to generate the module files.
+        `package_name`: Send in the name of the package if this builder
+             is specifying a package rather than a module.
+        '''
         self.params = params
+        # Simple filenames is a helper for simple builders where the
+        # file already exist and don't need to be generated.
         self.simple_filenames = []
+        # A list of (ip name, ip parameters, module name) for the IP
+        # blocks that will be used by this module.
         self.ips = []
+        # A list of builders necessary to generate the modules that
+        # will be used in this module.
         self.builders = []
+        # A list of packages required by this module.
         self.packages = []
+        # The name of this package (is this is a package rather than a module)
         self.package_name = package_name
 
     def _id(self):
+        '''
+        Generates a unique ID for the module.  This is useful so that
+        we can track which modules have been generated and we don't generate
+        the same one twice.
+        '''
         if self.package_name is not None:
             _id = self.package_name
         else:
@@ -53,22 +82,53 @@ class Builder(object):
         return _id
 
     def required_filenames(self, directory):
+        '''
+        Returns the files required to build this module.  It does not include
+        files required by other builders that build the dependencies for
+        this module.
+
+        Override this method for more complex builders.
+        '''
         return self.simple_filenames
 
     def required_ips(self):
+        '''
+        Returns a list of (ip name, ip parameters, module name) for the IP
+        blocks that will be used by this module.
+
+        Override this method for more complex builders.
+        '''
         return self.ips
 
     def required_builders(self):
+        '''
+        Returns a list of builders that make the dependencies of this
+        module.
+
+        Override this method for more complex builders.
+        '''
         return self.builders
 
     def required_packages(self):
+        '''
+        Returns a list of all the packages that this module requires.
+
+        Override this method for more complex builders.
+        '''
         return self.packages
 
     def build(self, directory, false_directory=None):
+        '''
+        Complex builders override this method to generate the required
+        files.
+        '''
         pass
 
 
 def params_from_xco(xco_filename):
+    '''
+    Takes a Xilinx XCO file and parses it to get the IP parameters.
+    '''
     params = {}
     with open(xco_filename, 'r') as f:
         for line in f:
@@ -80,6 +140,10 @@ def params_from_xco(xco_filename):
 
 
 def get_all_builders(top_builders=[], top_package=None, top_params={}):
+    '''
+    Takes a list of builders and generate a list of all required builders
+    by looking at their dependencies.
+    '''
     done_builders = {}
     todo_builders = {}
     for top_builder in top_builders:
@@ -106,6 +170,9 @@ def get_all_builders(top_builders=[], top_package=None, top_params={}):
     return builders
 
 def condense_ips(ips):
+    '''
+    Remove duplicates from a list of IPs.
+    '''
     condensed_ips = []
     ip_hashs = set()
     for ip in ips:
@@ -116,6 +183,9 @@ def condense_ips(ips):
     return condensed_ips
 
 def get_requirements(builders, directory):
+    '''
+    Get all the files and IPs required by a list of builders.
+    '''
     filenames = set()
     ips = []
     ip_hashs = set()
@@ -129,6 +199,12 @@ def get_requirements(builders, directory):
 
 def build_all(directory, top_builders=[], top_package=None, top_params={},
               false_directory=None):
+    '''
+    Takes a few top level builders, works out what all the
+    dependencies are, generates all the required files, and returns
+    the filenames and IP information of the requirements.
+
+    '''
     builders = get_all_builders(top_builders=top_builders,
                                 top_package=top_package,
                                 top_params=top_params)
