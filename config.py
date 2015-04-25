@@ -20,19 +20,10 @@ hwcodes = [
 ]
 # Real hardware codes look something like '210203826421A'
 
-def get_event_loop():
-    loop = asyncio.get_event_loop()
-    def wakeup():
-        # Hack to get round not catching signals in windows.
-        loop.call_later(0.1, wakeup)
-    loop.call_later(0.1, wakeup)
-    return loop
-
-def setup_for_test():
-    setup_logging(logging.DEBUG)
-
 def setup_logging(level):
-    "Utility function for setting up logging."
+    '''
+    Utility function for setting up logging.
+    '''
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
