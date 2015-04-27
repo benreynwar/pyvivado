@@ -469,7 +469,7 @@ class FPGAProject(BuilderProject):
         '''
         hwcode = redis_utils.get_unmonitored_projdir_hwcode(self.directory)
         if hwcode is None:
-            raise StandardException('No free hardware running this project found.')
+            raise Exception('No free hardware running this project found.')
         description = 'Monitor Redis connection and pass command to FPGA.'
         t = task.VivadoTask.create(
             parent_directory=self.directory,
@@ -504,7 +504,7 @@ class FPGAProject(BuilderProject):
         # Get the hardware code for an unmonitored FPGA.
         hwcode = redis_utils.get_free_hwcode()
         if hwcode is None:
-            raise StandardException('No free hardware found.')
+            raise Exception('No free hardware found.')
         # Spawn a Vivado process to deploy the bitstream and
         # start monitoring.
         t = task.VivadoTask.create(
