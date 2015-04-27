@@ -193,8 +193,7 @@ class VivadoTask(Task):
             `ignore_strings`: Is a list of strings which when present in
                 Vivado messages we ignore.
         '''
-        # To avoid getting flooded with errors we can't do anything about.
-        
+        messages = []
         out_lines = (self.get_stdout(), self.get_stderr())
         for lines in out_lines:
             for line in lines:
