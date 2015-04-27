@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
+from pyvivado import redis_utils
+
 class Connection(object):
 
     def __init__(self, hwcode):
@@ -23,9 +25,21 @@ class Connection(object):
         self.name = '{}_comm'.format(hwcode)
         self.listened = '{}_last_B'.format(hwcode)
         self.kill = '{}_kill'.format(hwcode)
+        self.hwcode = hwcode
+
+    def is_monitor_alive(self):
+        return redis_utils.hwcode_A_active(self.hwcode)
 
     def kill_monitor(self):
-        r.set(self.kill, 1)        
+        r.set(self.kill, 1)
+        # Wait for 5 seconds
+        counter = 0
+        while counter < 5 and self.is_monitor_alive():
+            time.sleep(1)
+            counter += 1
+        if self.is_monitor_alive():
+            raise Exception('Failed to kill monitor.')
+        
         
     def wait_for_response(self, timeout=None):
         waittime = 0.1
