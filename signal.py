@@ -1,3 +1,14 @@
+'''
+Defines the signal types that are used when making interfaces.
+
+The signal types are used heavily when running a file test bench
+to convert the python objects into the input files and then 
+convert the output files back into python objects.
+
+Their are also a bunch of utility functions for converting 
+numbers between different forms.
+'''
+
 import os
 import logging
 import math
@@ -7,6 +18,12 @@ logger = logging.getLogger(__name__)
 from pyvivado import config, utils
 
 def logceil(n):
+    '''
+    Find the minimum number of bits that can represent an index that
+    goes from 0 to (n-1).
+
+    A minimum of one bit is always required.
+    '''
     if n == 0:
         val = 0
     else:
@@ -19,33 +36,85 @@ def logceil(n):
 
 
 class SignalType(object):
+    '''
+    A base class for wire types which are used when constructing
+    interfaces.
+
+    A signal type itself is an instance of a class that inherits from
+    this class.
+    '''
 
     base_type = None
 
     def __init__(self, name, conversion_name=None):
+        '''
+        Create a new signal type.
+        
+        Args:
+            `name`: The name of this signal type.
+            `conversion_name`: The name used for this type in
+                conversion functions.
+        '''
         self.name = name
         if conversion_name is None:
             conversion_name = name
         self.conversion_name = conversion_name
 
     def typ(self):
+        '''
+        A string in VHDL that defines a signal of this type
+        (e.g. 'std_logic_vector(3 downto 2)'.
+        '''
         return self.name
 
     def defs_and_imps(self):
+        '''
+        Useful for automating the creation of packages defining types.
+        Doing these manually in VHDL can be really tedious.
+
+        Returns a (defs, impls) tuple where:
+            `defs`: A list of string of VHDL definitions required for this type.
+            `impls`: A list of strings of VHDL implementations required for this
+                type.
+        '''
         defs = ()
         imps = ()
         return (defs, imps)
 
     def conversion_to_slv(self, v):
+        '''
+        Returns a string of a VHDL function converting a value of this type
+        into a std_logic_vector.
+
+        '''
         to_slv = '{name}_to_slv({v})'.format(name=self.conversion_name, v=v)
         return to_slv
         
     def conversion_from_slv(self, v):
+        '''
+        Returns a string VHDL function converting a std_logic_vector into
+        this type.
+        '''
         from_slv = '{name}_from_slv({v})'.format(name=self.conversion_name, v=v)
         return from_slv
 
+    def to_bitstring(self, v):
+        '''
+        Converts a value of this type into a string of '0's and '1's.
+        '''
+        raise NotImplementedError().
+
+    def from_bitstring(self, v):
+        '''
+        Converts a string of '0's and '1's into a value of this type.
+        '''
+        raise NotImplementedError().
+
 
 class StdLogic(SignalType):
+    '''
+    A signal type for a bit (std_logic in VHDL).
+    '''
 
     def __init__(self):
         self.width = 1
@@ -78,14 +147,23 @@ class StdLogic(SignalType):
             raise ValueError('StdLogic has unknown value {}'.format(value))
         return output
 
+# Instantiate a StdLogic instance to use in interfaces.
 std_logic_type = StdLogic()
 
 
 class StdLogicVector(SignalType):
+    '''
+    A signal type for an array of bits (std_logic_vector in VHDL).
+    '''
 
     base_type = 'std_logic_vector'
 
     def __init__(self, width, name=None):
+        '''
+        Args:
+            `width`: The width of the std_logic_vector.
+            `name`: The name of the VHDL to define this as.
+        '''
         self.width = width
         if name is None:
             self.name = self.base_type
@@ -126,7 +204,11 @@ class StdLogicVector(SignalType):
 
 
 class Unsigned(StdLogicVector):
-    
+    '''
+    A signal type for an unsigned integer.
+    '''
+    # Since we treat std_logic_vector as unsigned integers in python
+    # this class doesn't need to do much.
     base_type = 'unsigned'
 
 
@@ -134,6 +216,9 @@ unsigned_type = Unsigned('unsigned')
 
 
 class Signed(StdLogicVector):
+    '''
+    A signal type for an signed integer.
+    '''
 
     base_type = 'signed'
     
@@ -149,6 +234,10 @@ signed_type = Signed('signed')
 
 
 class Integer(SignalType):
+    '''
+    A signal type for an integer with specified minimum and maximum
+    values.
+    '''
 
     base_type = 'integer'
 
@@ -203,6 +292,10 @@ class Integer(SignalType):
 
 
 class Natural(Integer):
+    '''
+    A signal type for an natural number (minimum=0).
+    This is treated differently in VHDL than an unsigned integer.
+    '''
     
     base_type = 'natural'
 
@@ -211,6 +304,24 @@ class Natural(Integer):
 
 
 def make_array_defs(contained_type):
+    '''
+    Creates strings from VHDL types and functions to define arrays of the
+    `contained_type`.
+
+    Returns a (
+        (type_def, to_slv_fn_def, from_slv_fn_def),
+        (to_slv_fn_imp, from_slv_fn_imp),
+    ) where:
+        `type_def`: Defines the VHDL type for the array.
+        `to_slv_fn_def`: Definition of a function that converts the array to a 
+            std_logic_vector.
+        `from_slv_fn_def`: Definition a function that creates the array from a
+            std_logic_vector.
+        `to_slv_fn_imp`: Implementation of a function that converts the array
+            to a std_logic_vector.
+        `from_slv_fn_imp`: Implementation of a function that creates the array
+            from a std_logic_vector.
+    '''
     params = {
         'name': contained_type.name,
         'width': contained_type.width,
@@ -245,8 +356,18 @@ end function;'''.format(**params)
 
 
 class Record(SignalType):
+    '''
+    The signal type for a VHDL record.
+
+    In python a record is represented as a dictionary.
+    '''
 
     def __init__(self, contained_types, name):
+        '''
+        Args:
+            `contained types`: a list of (name, signal type) tuples.
+            `name`: The name of the composite type.
+        '''
         self.named_type = True
         super().__init__(name=name)
         # Start from type that is positioned in high indices.
@@ -278,11 +399,21 @@ class Record(SignalType):
             
 
 class Array(SignalType):
+    '''
+    The signal type for a VHDL array.
+    '''
     
-    def __init__(self, contained_type, size, name=None, conversion_name=None, named_type=True):
-        if (name is None) or (not named_type):
-            if name is None:
-                name = 'array_of_{}'.format(contained_type.name)
+    def __init__(self, contained_type, size, name=None, conversion_name=None):
+        '''
+        Args:
+            `contained_type`: The signal type of the items we are making
+                an array of.
+            `size`: The number of items in the array.
+            `name`: If we are defining a new VHDL subtype, this is its name.
+            `conversion_name`: The name used in conversion functions.
+        '''
+        if (name is None):
+            name = 'array_of_{}'.format(contained_type.name)
             self.named_type = False
         else:
             self.named_type = True
@@ -336,8 +467,13 @@ class Array(SignalType):
 
 def signed_integer_to_std_logic_vector(i, width):
     '''
+    Convert a signed integer to a string of '0's and '1's.
     Most significant bit goes to left of string.
     Uses two's complement.
+
+    Args:
+       'i': The signed integer.
+       'width': The number of bits to represent it with.
     '''
     if abs(i) >= pow(2, width-1):
         raise ValueError('Cannot convert signed integer {} to std_logic_vector of width {} (not allowing all 1s for safety)'.format(i, width))
@@ -348,7 +484,12 @@ def signed_integer_to_std_logic_vector(i, width):
 
 def unsigned_integer_to_std_logic_vector(i, width):
     '''
+    Convert an unsigned integer to a string of '0's and '1's.
     Most significant bit goes to left of string.
+
+    Args:
+       'i': The unsigned integer.
+       'width': The number of bits to represent it with.
     '''
     if i is None:
         return 'X' * width
@@ -366,6 +507,10 @@ def unsigned_integer_to_std_logic_vector(i, width):
     return ''.join(bits)
 
 def std_logic_vector_to_unsigned_integer(d):
+    '''
+    Convert a string of '0's and '1's to a unsigned integer.
+    The most significant bit is at the left of string.    
+    '''
     value = 1
     output = 0
     for bit in reversed(d):
@@ -378,6 +523,11 @@ def std_logic_vector_to_unsigned_integer(d):
     return output
 
 def std_logic_vector_to_signed_integer(d):
+    '''
+    Convert a string of '0's and '1's to a signed integer.
+    Assumes the most significant bit is at the left of string.    
+    Assumes twos complement.
+    '''
     i = std_logic_vector_to_unsigned_integer(d)
     if i is not None:
         powered = pow(2, len(d))
@@ -386,6 +536,18 @@ def std_logic_vector_to_signed_integer(d):
     return i
 
 def make_defs_file(filename, package_name, signal_types, contained_signal_types):
+    '''
+    Makes a package of definitions so you don't have to.
+    TODO: I haven't been using this recently so it probably needs better
+    testing.
+
+    Args:
+        `filename`: Where to write the file.
+        `package_name`: The name of the package.
+        `signal_type`: A list of signal types to define in the package.
+        `contained_signal_types`: A list of signa types which
+            we will make unnamed arrays of.
+    '''
     defs = []
     imps = []
     for signal_type in signal_types:
@@ -405,6 +567,10 @@ def make_defs_file(filename, package_name, signal_types, contained_signal_types)
     utils.format_file(template_fn, filename, template_params)
     
 def sint_to_uint(sint, width):
+    '''
+    Convert a signed integer to an unsigned integer assuming
+    twos complement and a known width.
+    '''
     sint_signal = Signed(width=width)
     uint_signal = Unsigned(width=width)
     bitstring = sint_signal.to_bitstring(sint)
@@ -412,6 +578,10 @@ def sint_to_uint(sint, width):
     return uint
 
 def uint_to_sint(sint, width):
+    '''
+    Convert an unsigned integer to an signed integer assuming
+    twos complement and a known width.
+    '''
     sint_signal = Signed(width=width)
     uint_signal = Unsigned(width=width)
     bitstring = uint_signal.to_bitstring(sint)
@@ -419,6 +589,15 @@ def uint_to_sint(sint, width):
     return sint
 
 def uint_to_complex(uint, width):
+    '''
+    Convert an unsigned integer to a complex number with
+    integer coefficients.
+
+    Args:
+        `uint`: The unsigned number.
+        `width`: The width of each component of the complex number.
+           (`uint` has twice that width)
+    '''
     f = pow(2, width)
     uint_A = uint // f
     uint_B = uint % f
@@ -428,12 +607,28 @@ def uint_to_complex(uint, width):
     return c
 
 def complex_to_uint(c, width):
+    '''
+    Convert a complex number (with integer coefficients) to a unsigned
+    integer.  
+
+    Args:
+        `c`: The complex number.
+        `width`: The width of each component of the complex number.
+           (The output integer has twice this width).
+    '''
     uint_A = sint_to_uint(c.imag, width)
     uint_B = sint_to_uint(c.real, width)
     uint = uint_A * pow(2, width) + uint_B
     return uint
     
 def list_of_uints_to_uint(list_of_uints, width):
+    '''
+    Convert a list of unsigned integers into a single unsigned integer.
+    
+    Args:
+        `list_of_uints`: The list of integers.
+        `width`: The width of each individual integer.
+    '''
     value_signal = Unsigned(width=width)
     array_signal = Array(value_signal, len(list_of_uints))
     uint_signal = Unsigned(width=len(list_of_uints)*width)
@@ -442,6 +637,13 @@ def list_of_uints_to_uint(list_of_uints, width):
     return uint
 
 def list_of_sints_to_uint(list_of_sints, width):
+    '''
+    Convert a list of signed integers into a single unsigned integer.
+    
+    Args:
+        `list_of_sints`: The list of signed integers.
+        `width`: The width of each individual integer.
+    '''
     value_signal = Signed(width=width)
     array_signal = Array(value_signal, len(list_of_sints))    
     uint_signal = Unsigned(width=len(list_of_sints)*width)
@@ -450,6 +652,13 @@ def list_of_sints_to_uint(list_of_sints, width):
     return uint
 
 def uint_to_list_of_sints(uint, size, width):
+    '''
+    Convert an unsigned integer into a list of signed integers.
+    
+    Args:
+        `uint`: the unsigned integer
+        `width`: The width of each individual signed integer.
+    '''
     value_signal = Signed(width=width)
     array_signal = Array(value_signal, size)    
     uint_signal = Unsigned(width=size*width)
@@ -458,6 +667,13 @@ def uint_to_list_of_sints(uint, size, width):
     return list_of_sints
     
 def uint_to_list_of_uints(uint, size, width):
+    '''
+    Convert an unsigned integer into a list of unsigned integers.
+    
+    Args:
+        `uint`: the input unsigned integer
+        `width`: The width of each individual unsigned integer.
+    '''
     value_signal = Unsigned(width=width)
     array_signal = Array(value_signal, size)    
     uint_signal = Unsigned(width=size*width)

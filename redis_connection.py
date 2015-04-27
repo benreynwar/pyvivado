@@ -1,3 +1,8 @@
+'''
+Communication with Vivado processes monitoring FPGAs over redis.
+Using redis was an awful idea.  It should be done over sockets.
+'''
+
 import os
 import time
 import redis
