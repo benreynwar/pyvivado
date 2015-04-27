@@ -12,22 +12,29 @@ from pyvivado.hdl.wrapper import inner_wrapper, file_testbench, jtag_axi_wrapper
 
 logger = logging.getLogger(__name__)
 
-def params_text(params):
-    as_json = json.dumps(params, sort_keys=True,
-                         indent=2, separators=(',', ': '))
-    return as_json
-
 
 class Project(object):
+    '''
+    The base class for python wrappers around Vivado Projects.
+
+    Also does some management of Vivado processes (`Task`s) that are run.
+    '''
     
     @classmethod
     def default_tasks_collection(cls, directory):
+        '''
+        The location of the database where we keep track of tasks.
+        '''
         db_fn = os.path.join(directory, 'tasks.db')
         tasks_collection = sqlite_collection.SQLLiteCollection(db_fn)        
         return tasks_collection
 
     @staticmethod
     def hash(design_files, simulation_files, ips):
+        '''
+        Generate a hash that based on the files and IP in the project.
+        This is used to tell when the files in the project have been changed.
+        '''
         h = hashlib.sha1()
         design_files = sorted(list(design_files))
         simulation_files = sorted(list(simulation_files))
@@ -46,6 +53,12 @@ class Project(object):
 
     @staticmethod
     def read_hash(directory):
+        '''
+        When a project is generated we write a hash so we know what state the
+        files were in, and we can tell if the files have changed since the
+        project was generated.
+        Here we read that hash.
+        '''
         hash_fn = os.path.join(directory, 'hash.txt')
         if not os.path.exists(hash_fn):
             h = None
@@ -56,6 +69,9 @@ class Project(object):
 
     @staticmethod
     def write_hash(directory, h):
+        '''
+        Write a record of the project's hash.
+        '''
         hash_fn = os.path.join(directory, 'hash.txt')
         with open(hash_fn, 'wb') as f:
             f.write(h)
@@ -65,8 +81,28 @@ class Project(object):
                tasks_collection=None,
                part='', board='', ips=[],
                top_module=''):
+        '''
+        Create a new Vivado project.
+
+        Args:
+            `directory`: The directory where the project will be created.
+            `design_files`: The files for the synthesizable fraction of the design.
+            `simulation_files`: The simulation files (i.e. non-synthesizable).
+            `tasks_collection`: How to keep track of the Vivado processes we start.
+            `part`: The 'part' to use when implementing.
+            `board`: The 'board' to used when implementing.
+            `ips`: A list of (ip name, ip parameters, module name) tuples that are
+                   used to specify the required IP blocks.
+            `top_module`: The name of the top level module.
+
+        Returns:
+            A python `Project` object that wraps a Vivado project.  The Vivado project
+            itself will still be in the middle of being created when the function
+            returns.
+        '''
         if tasks_collection is None:
             tasks_collection = cls.default_tasks_collection(directory)
+        # Format the IP infomation into a TCL-friendly format.
         tcl_ips = []
         for ip_name, ip_properties, module_name in ips:
             ip_version = ''
@@ -77,13 +113,18 @@ class Project(object):
             tcl_ip = '{} {{ {} }}'.format(tcl_start, tcl_properties)
             tcl_ips.append(tcl_ip)
         tcl_ips = ' '.join(['{{ {} }}'.format(ip) for ip in tcl_ips])
+        # Fail if a project already exists in this directory.
         if os.path.exists(os.path.join(directory, 'TheProject.xpr')):
             raise Exception('Project already exists.')
+        # Write a hash that depends on the files and IPs.
+        # We use this later to check whether any of the files or 
+        # IP requirements have changed.
         cls.write_hash(directory, cls.hash(
             design_files=design_files,
             simulation_files=simulation_files,
             ips=ips,
         ))
+        # Generate a TCL command to create the project.
         command_template = '''::pyvivado::create_vivado_project {{{directory}}} {{ {design_files} }} {{ {simulation_files} }} {{{part}}} {{{board}}} {{{ips}}} {{{top_module}}}'''
         command = command_template.format(
             directory=directory,
@@ -106,10 +147,20 @@ class Project(object):
             tasks_collection=tasks_collection
         )
         t.run()
+        # Finally create the python project wrapper and return it.
+        # Note that the Vivado process is still running and the Vivado
+        # project itself is still in the middle of being created.
         p = cls(directory, tasks_collection)
         return p
     
     def __init__(self, directory, tasks_collection=None):
+        '''
+        Create a python wrapper around a Vivado project.
+
+        Args:
+           `directory`: Location of the vivado project.
+           `tasks_collection`: How we keep track of the Vivado processes.
+        '''
         self.directory = directory
         if tasks_collection is None:
             self.tasks_collection = self.default_tasks_collection(directory)
@@ -118,6 +169,11 @@ class Project(object):
         self.filename = os.path.join(directory, 'TheProject.xpr')
         
     def get_tasks(self):
+        '''
+        Get all the tasks (Vivado processes) that have been run on this proejct.
+        We get them from their directories in the project directory rather
+        than from checking the `tasks_collection`.
+        '''
         ids = [int(fn[5:]) for fn in os.listdir(self.directory)
                if fnmatch.fnmatch(fn, 'task_*')]
         tasks = [
@@ -126,10 +182,16 @@ class Project(object):
         return tasks
 
     def unfinished_tasks(self):
+        '''
+        Gets a list of all tasks on this project that have not finished.
+        '''
         tasks = [t for t in self.get_tasks() if not t.is_finished()]
         return tasks
 
     def get_most_recent_task(self):
+        '''
+        Get the most recent task that was run on this project.
+        '''
         ids = [int(fn[5:]) for fn in os.listdir(self.directory)
                if fnmatch.fnmatch(fn, 'task_*')]
         ids.sort()
@@ -137,6 +199,10 @@ class Project(object):
         return t
 
     def wait_for_most_recent_task(self):
+        '''
+        Get the most recent task that was run on this project and wait
+        for it to complete.
+        '''
         t = self.get_most_recent_task()
         while not t.is_finished():
             logger.debug('Waiting for tasks to finish.')
@@ -146,22 +212,40 @@ class Project(object):
 
 
 class BuilderProject(Project):
+    '''
+    A wrapper around a Vivado project.  It assumes that the project was
+    created using `Builder`s rather than by explicitly listing the files.
+    '''
 
     @classmethod
     def predict_hash(cls, design_builders, simulation_builders, parameters,
                      temp_directory, directory):
+        '''
+        Get the project hash for the project that these builders would create.
+
+        Args:
+            `design_builders`: The builders responsible for the synthesizable code.
+            `simulation_builders`: The builders responsible for the simulation code.
+            `parameters`: Top level parameters used to generated the design.
+            `temp_directory`: We temporary directory where we'll generate the files
+                so we can work out the hash.
+            `directory`: The real project location.  This is required since some
+                simulation files may need this information.
+        '''
         # Make a new directory for temporary files.
         if os.path.exists(temp_directory):
             shutil.rmtree(temp_directory)
         os.makedirs(temp_directory)
-        parameters['directory'] = directory
+        # Build all the required files.
         design_requirements = builder.build_all(
             temp_directory, top_builders=design_builders, top_params=parameters)
         simulation_requirements = builder.build_all(
             temp_directory, top_builders=simulation_builders,
             top_params=parameters, false_directory=directory)
+        # Work out what IP blocks are required.
         ips = builder.condense_ips(
             design_requirements['ips'] + simulation_requirements['ips'])
+        # And generate the hash.
         new_hash = cls.hash(
             design_files=design_requirements['filenames'],
             simulation_files=simulation_requirements['filenames'],
@@ -173,6 +257,27 @@ class BuilderProject(Project):
     def delete_if_changed(cls, design_builders, simulation_builders, parameters, directory,
                tasks_collection=None, part='', board='', top_module='',
                factory_name=None):
+        '''
+        Check if the dependencies of the project have changed.  If they have delete
+        the project so that it can be recreated later.
+
+        Args:
+            `design_builders`: The builders responsible for the synthesizable code.
+            `simulation_builders`: The builders responsible for the simulation code.
+            `parameters`: Top level parameters used to generated the design.
+            `temp_directory`: We temporary directory where we'll generate the files
+                so we can work out the hash.
+            `directory`: The real project location.  This is required since some
+                simulation files may need this information.
+            `tasks_collection`: How we keep track of Vivado processes.
+            `part`: The 'part' to use when implementing.
+            `board`: The 'board' to use when implementing.
+            `top_module`: The top level module in the design.
+            `factory_name`: The name of the builder that creates the top level module.
+                Don't specify if this is the same as `top_module`, but it is often
+                different since the module name may depend on the parameters used
+                by the builder.
+        '''
         if os.path.exists(directory):
             # Check that project file exists
             if not os.path.exists(os.path.join(directory, 'TheProject.xpr')):
@@ -196,6 +301,30 @@ class BuilderProject(Project):
     def create(cls, design_builders, simulation_builders, parameters, directory,
                tasks_collection=None, part='', board='', top_module='',
                factory_name=None):
+        '''
+        Create a new Vivado project from `Builder`'s specifying the top level
+        modules.  Spawns a Viavdo process to create the project and returns a 
+        python wrapper around the process while that process is still running in
+        the background.
+
+        Args:
+            `design_builders`: The builders responsible for the synthesizable code.
+            `simulation_builders`: The builders responsible for the simulation code.
+            `parameters`: Top level parameters used to generated the design.
+            `temp_directory`: We temporary directory where we'll generate the files
+                so we can work out the hash.
+            `directory`: The real project location.  This is required since some
+                simulation files may need this information.
+            `tasks_collection`: How we keep track of Vivado processes.
+            `part`: The 'part' to use when implementing.
+            `board`: The 'board' to use when implementing.
+            `top_module`: The top level module in the design.
+            `factory_name`: The name of the builder that creates the top level module.
+                Don't specify if this is the same as `top_module`, but it is often
+                different since the module name may depend on the parameters used
+                by the builder.
+        '''
+        
         if factory_name:
             cls.write_params(parameters, factory_name, directory)
         design_requirements = builder.build_all(
@@ -217,12 +346,18 @@ class BuilderProject(Project):
         return p
 
     def read_params(self):
+        '''
+        Read the parameters that were used to generate this project.
+        '''
         fn = os.path.join(self.directory, 'params.txt')
         with open(fn, 'r') as f:
             params = json.load(f)
         return params
 
     def write_params(params, factory_name, directory):
+        '''
+        Write the parameters that were used to generate this project.
+        '''
         fn = os.path.join(directory, 'params.txt')
         params['factory_name'] = factory_name
         if os.path.exists(fn):
@@ -234,11 +369,20 @@ class BuilderProject(Project):
                 
 
 class FPGAProject(BuilderProject):
+    '''
+    A python wrapper around a Vivado project that is designed to be deployed
+    to the FPGA and communicated with over JTAG and the JTAG-to-AXI block.
+    '''
 
     @classmethod
     def make_parent_params(
             cls, the_builder, parameters, directory,
             tasks_collection=None, part='', board=''):
+        '''
+        Takes the top level builder (which must have an AXI4Lite interface) along
+        with the project parameters and generate the parameters required by
+        `BuilderProject.create`.
+        '''
         jtagaxi_builder = jtag_axi_wrapper.JtagAxiWrapperBuilder(parameters)
         return {
             'design_builders': [the_builder, jtagaxi_builder],
@@ -255,6 +399,23 @@ class FPGAProject(BuilderProject):
     def create_or_update(
             cls, the_builder, parameters, directory,
             tasks_collection=None, part='', board=''):
+        '''
+        Create a new FPGAProject if one does not already exist in the 
+        directory.  If one does exist and the dependencies have been modified
+        then delete the old project and create a new one.  If one does exist
+        and the dependencies have not been modified then use the existing
+        project.
+
+        Args: 
+            `the_builder`: The builder for the top level module with an AXI4Lite
+                 interface.
+            `parameters`: The top level parameters for the design.  These are
+                 passed the builders of any packages required. 
+            `directory`: The directory where the project will be created.
+            `tasks_collection`: How to keep track of the Vivado processes we start.
+            `part`: The 'part' to use when implementing.
+            `board`: The 'board' to used when implementing.
+        '''
         parent_params = cls.make_parent_params(
             the_builder=the_builder, parameters=parameters, directory=directory,
             tasks_collection=tasks_collection, part=part, board=board)
@@ -273,6 +434,9 @@ class FPGAProject(BuilderProject):
         return p
 
     def get_monitors_hwcode(self, monitor_task):
+        '''
+        Get the hardware code for the FPGA that this project has been deployed to.
+        '''
         # Wait for the monitor to become available.
         max_waits = 60
         n_waits = 0
@@ -294,6 +458,15 @@ class FPGAProject(BuilderProject):
         return hwcode
 
     def monitor_existing(self):
+        '''
+        Find an FPGA running this project that is not already monitored, and start
+        monitoring it.
+
+        Returns a (t, conn) tuple where:
+            `t`: is the `Task` wrapping the Vivado process monitoring the FPGA, and
+            `conn`: is the `Connection` with which this python process can
+                 communicate the monitor.
+        '''
         hwcode = redis_utils.get_unmonitored_projdir_hwcode(self.directory)
         if hwcode is None:
             raise StandardException('No free hardware running this project found.')
@@ -311,17 +484,29 @@ class FPGAProject(BuilderProject):
 
 
     def send_to_fpga_and_monitor(self, fake=False):
-        # First kill any monitors connected to this project.
-        connection.kill_free_monitors(self.directory)
+        '''
+        Send the bitstream of this project to an FPGA and start
+        monitoring that FPGA.
+
+        Returns a (t, conn) tuple where:
+            `t`: is the `Task` wrapping the Vivado process monitoring the FPGA, and
+            `conn`: is the `Connection` with which this python process can
+                 communicate the monitor.
+        '''
         if fake:
+            # First kill any monitors connected to this project.
+            connection.kill_free_monitors(self.directory)
             fake_int = 1
             description = 'Faking sending the project to fpga and monitoring.'
         else:
             fake_int = 0
             description = 'Sending project to fpga and monitoring.'
+        # Get the hardware code for an unmonitored FPGA.
         hwcode = redis_utils.get_free_hwcode()
         if hwcode is None:
             raise StandardException('No free hardware found.')
+        # Spawn a Vivado process to deploy the bitstream and
+        # start monitoring.
         t = task.VivadoTask.create(
             parent_directory=self.directory,
             command_text='::pyvivado::send_to_fpga_and_monitor {{{}}} {} {}'.format(
@@ -330,11 +515,17 @@ class FPGAProject(BuilderProject):
             tasks_collection=self.tasks_collection,
         )
         t.run()
+        # Wait for the task to start monitoring and get the
+        # hardware code of the free fpga.
         hwcode = self.get_monitors_hwcode(t)
+        # Create a Connection object for communication with the FPGA/
         conn = connection.Connection(hwcode)
         return t, conn
 
     def implement(self):
+        '''
+        Spawn a Vivado process to implement the project.
+        '''
         t = task.VivadoTask.create(
             parent_directory=self.directory,
             command_text='::pyvivado::open_and_implement {{{}}}'.format(
@@ -347,10 +538,18 @@ class FPGAProject(BuilderProject):
         
 
 class FileTestBenchProject(BuilderProject):
+    '''
+    A python wrapper around a Vivado project that will run verification by
+    reading inputs from files and writing outputs to files.
+    '''
 
     @classmethod
     def make_parent_params(cls, interface, directory, tasks_collection=None,
                            part='', board=''):
+        '''
+        Takes an `Interface` object for the module we are testing and
+        generates the parameters required by `BuilderProject.create`.
+        '''
         inner_wrapper_builder = inner_wrapper.InnerWrapperBuilder({
             'interface': interface,
         })
@@ -372,6 +571,20 @@ class FileTestBenchProject(BuilderProject):
     @classmethod
     def create_or_update(cls, interface, directory, tasks_collection=None,
                          part='', board=''):
+        '''
+        Create a new FileTestBenchProject if one does not already exist in the 
+        directory.  If one does exist and the dependencies have been modified
+        then delete the old project and create a new one.  If one does exist
+        and the dependencies have not been modified then use the existing
+        project.
+
+        Args: 
+            `interface`: The `Interface` object for the top level module.
+            `directory`: The directory where the project will be created.
+            `tasks_collection`: How to keep track of the Vivado processes we start.
+            `part`: The 'part' to use when implementing.
+            `board`: The 'board' to used when implementing.
+        '''        
         parent_params = cls.make_parent_params(
             interface=interface, directory=directory,
             tasks_collection=tasks_collection, part=part, board=board)
@@ -390,14 +603,33 @@ class FileTestBenchProject(BuilderProject):
         return p
                 
     def __init__(self, directory, tasks_collection=None):
+        '''
+        Create a python wrapper around an existing Vivado testbench project.
+        '''
         self.input_filename = os.path.join(directory, 'input.data')
         self.output_filename = os.path.join(directory, 'output.data')
         super().__init__(directory, tasks_collection)
         self.params = self.read_params()
+        # We regenerate the interface object based on the parameters
+        # file that was written when the project was created.
         self.interface = interface.module_register[self.params['factory_name']](
             params=self.params)
 
     def run_simulation(self, input_data, runtime=None, sim_type='hdl'):
+        '''
+        Spawns a vivado process that will run of simulation of the project.
+
+        Args:
+            `input_data`: A list of dictionaries of the input wire values.
+            `runtime`: A string specifying the runtime.
+            'sim_type`: The string specifying the simulation type.  It can be
+               ('hdl', 'post_synthesis', 'timing) or anythhing else that 
+               Vivado recognizes.
+
+        Returns a (errors, output_data) tuple where:
+            `errors`: If a list of errors produced by the simulation task.
+            `output_data`: A list of dictionaries of the output wire values.
+        '''
         command_template = '''
 open_project {{{project_filename}}}
 ::pyvivado::run_{sim_type}_simulation {{{directory}}} {{{runtime}}}
@@ -417,8 +649,10 @@ open_project {{{project_filename}}}
         # Write the input file to the task directory.
         self.interface.write_input_file(
             input_data, os.path.join(t.directory, self.input_filename))
+        # Run the simulation task and wait for it to complete.
         t.run_and_wait()
         errors = t.get_errors()
+        # Write the output files.
         data_out = self.interface.read_output_file(
             os.path.join(t.directory, self.output_filename))
         return errors, data_out
