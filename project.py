@@ -623,8 +623,7 @@ class FileTestBenchProject(BuilderProject):
             `input_data`: A list of dictionaries of the input wire values.
             `runtime`: A string specifying the runtime.
             'sim_type`: The string specifying the simulation type.  It can be
-               ('hdl', 'post_synthesis', 'timing) or anythhing else that 
-               Vivado recognizes.
+               'hdl', 'post_synthesis', or 'timing.
 
         Returns a (errors, output_data) tuple where:
             `errors`: If a list of errors produced by the simulation task.

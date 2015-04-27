@@ -1,12 +1,19 @@
 package provide pyvivado 0.1
 
 namespace eval ::pyvivado {
-    namespace export create_project
 }
 
+# Create a new Vivado project.
+# Args:
+#     `project_dir`: The directory in which the project will be created.
+#     `design_files`: The synthesizable design files (can be "  ").
+#     `simulation_files`: The wrapper files for simulation (can be "  ").
+#     `part`: The part for which we will implement (can be "").
+#     `board`: The board for which we will implement (can be "").
+#     `ips`: A list of (ip_name, ip_version, module_name, properties) used
+#         define the IP blocks that are required.
+#     `top_module`: The top module of the design (can be "").
 proc ::pyvivado::create_vivado_project {project_dir design_files simulation_files part board ips top_module} {
-    puts $design_files
-    puts $simulation_files
     if {$part != ""} {
         create_project TheProject $project_dir -part $part
     } else {
@@ -49,19 +56,7 @@ proc ::pyvivado::create_vivado_project {project_dir design_files simulation_file
     update_compile_order -fileset sources_1
 }
 
-# This is just here for testing tasks
-# It never returns and must be killed.
-proc ::pyvivado::loop_forever {dummy_file} {
-    set counter 0
-    while 1 {
-	set fileId [open $dummy_file "a"]
-	puts $fileId $counter
-	close $fileId	
-	incr counter
-	after 1000
-    }
-}
-
+# Check if the project has been syntehesized yet.
 proc ::pyvivado::is_synthesized {} {
     set is_done 1
     if {[catch {wait_on_run synth_1} errmsg]} {
@@ -70,6 +65,7 @@ proc ::pyvivado::is_synthesized {} {
     return $is_done
 }
 
+# Check if the project has been implemented yet.
 proc ::pyvivado::is_implemented {} {
     set is_done 1
     if {[catch {wait_on_run impl_1} errmsg]} {
@@ -78,6 +74,7 @@ proc ::pyvivado::is_implemented {} {
     return $is_done
 }
 
+# Synthesize the project if it hasn't been yet.
 proc ::pyvivado::synthesize {} {
     set synthesized [::pyvivado::is_synthesized]
     if {$synthesized == 0} {
@@ -86,6 +83,7 @@ proc ::pyvivado::synthesize {} {
     }
 }
 
+# Implement the project if it hasn't been yet.
 proc ::pyvivado::implement {} {
     set implemented [::pyvivado::is_implemented]
     if {$implemented == 0} {
@@ -95,6 +93,7 @@ proc ::pyvivado::implement {} {
     }
 }
 
+# Implement the project but skip generating the bitstream.
 proc ::pyvivado::implement_without_bitstream {} {
     set implemented [::pyvivado::is_implemented]
     if {$implemented == 0} {
@@ -104,11 +103,14 @@ proc ::pyvivado::implement_without_bitstream {} {
     }
 }
 
+# Open the project (specified by the `proj_dir`) and implement
+# it.
 proc ::pyvivado::open_and_implement {proj_dir} {
     open_project "${proj_dir}/TheProject.xpr"
     ::pyvivado::implement
 }
 
+# Run a behavioral HDL simulation.
 proc ::pyvivado::run_hdl_simulation {proj_dir runtime} {
     set sim_dir "${proj_dir}/TheProject.sim/sim_1/behav"
     set sim_dir_exists [file isdirectory $sim_dir]
@@ -124,8 +126,7 @@ proc ::pyvivado::run_hdl_simulation {proj_dir runtime} {
     launch_simulation -simset sim_1 -mode behavioral
 }
 
-
-
+# Run a post-synthesis behavioral simulation.
 proc ::pyvivado::run_post_synthesis_simulation {proj_dir runtime} {
     set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY none [get_runs synth_1]
     ::pyvivado::synthesize
@@ -143,6 +144,7 @@ proc ::pyvivado::run_post_synthesis_simulation {proj_dir runtime} {
     launch_simulation -simset sim_1 -mode post-synthesis -type functional
 }
 
+# Run a post-implementation timing simulation.
 proc ::pyvivado::run_timing_simulation {proj_dir runtime} {
     ::pyvivado::implement_without_bitstream
     set sim_dir "${proj_dir}/TheProject.sim/sim_1/impl"
@@ -159,6 +161,12 @@ proc ::pyvivado::run_timing_simulation {proj_dir runtime} {
     launch_simulation -simset sim_1 -mode post-implementation -type timing
 }
 
+# Deploy the bitstream to an FPGA and start monitoring it.
+# Args:
+#     `proj_dir`: The directory where the project we want to deploy is.
+#     `hwcode`: The hardware code of the FPGA we want to deploy it to.
+#     `fake`: If fake == 1 that we don't deploy it we just pretend we 
+#          did any just return 0 for all AXI read commands.
 proc ::pyvivado::send_to_fpga_and_monitor {proj_dir hwcode fake} {
     if {$fake == 0} {
 	connect_hw_server -host localhost -port 60001 -url localhost:3121
@@ -170,6 +178,8 @@ proc ::pyvivado::send_to_fpga_and_monitor {proj_dir hwcode fake} {
     ::pyvivado::monitor_redis_inner $hwcode $fake
 }
 
+# Monitor REDIS for AXI commands to send to the FPGA.
+# Assumes connection with hardware server is already setup.x
 proc ::pyvivado::monitor_redis_inner {hwcode fake} {
     package require redis
     set r [redis 127.0.0.1 6379]
@@ -182,6 +192,7 @@ proc ::pyvivado::monitor_redis_inner {hwcode fake} {
     }
 }
 
+# Monitor REDIS for AXI commands to send to the FPGA.
 proc ::pyvivado::monitor_redis {hwcode fake} {
     if {$fake == 0} {
 	connect_hw_server -host localhost -port 60001 -url localhost:3121
@@ -194,9 +205,8 @@ proc ::pyvivado::monitor_redis {hwcode fake} {
     monitor_redis_inner $hwcode $fake
  }
 
+# Send the projects bitstream to the FPGA.
 proc ::pyvivado::send_bitstream_to_fpga {proj_dir hwcode fake} {
-    puts "DEBUG: proj dir is"
-    puts "DEBUG: $proj_dir"
     if {$fake == 0} {
 	if {[file exists "${proj_dir}/TheProject.runs/impl_1/FileTestBench.bit"]} {
 	    set_property PROGRAM.FILE "${proj_dir}/TheProject.runs/impl_1/FileTestBench.bit" [lindex [get_hw_devices] 0]
@@ -209,11 +219,14 @@ proc ::pyvivado::send_bitstream_to_fpga {proj_dir hwcode fake} {
 	program_hw_devices [lindex [get_hw_devices] 0]
 	refresh_hw_device [lindex [get_hw_devices] 0]
     }
+    # Make a note that this hardware is now running this project.
     package require redis
     set r [redis 127.0.0.1 6379]
     $r set ${hwcode}_projdir $proj_dir
 }
 
+# Check redis for any AXI commands to send to the FPGA.
+# Writes responses back to redis.
 proc ::pyvivado::check_redis {r hwcode fake} {
     puts "checking redis"
     $r set ${hwcode}_last_A [clock format [clock seconds] -format %Y%m%d%H%M%S]
@@ -272,6 +285,7 @@ proc ::pyvivado::check_redis {r hwcode fake} {
     }
 }
 
+# Send an AXI read command to the FPGA.
 proc ::pyvivado::read_axi {address} {
     create_hw_axi_txn read_txn [get_hw_axis hw_axi_1] -type READ -address $address -len 1
     run_hw_axi [get_hw_axi_txns read_txn]
@@ -280,6 +294,7 @@ proc ::pyvivado::read_axi {address} {
     return $results
 }
 
+# Send an AXI write command to the FPGA.
 proc ::pyvivado::write_axi {address value} {
     create_hw_axi_txn write_txn [get_hw_axis hw_axi_1] -type WRITE -address $address -len 1 -data $value
     run_hw_axi [get_hw_axi_txns write_txn]

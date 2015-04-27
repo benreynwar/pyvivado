@@ -102,13 +102,13 @@ class SignalType(object):
         '''
         Converts a value of this type into a string of '0's and '1's.
         '''
-        raise NotImplementedError().
+        raise NotImplementedError()
 
     def from_bitstring(self, v):
         '''
         Converts a string of '0's and '1's into a value of this type.
         '''
-        raise NotImplementedError().
+        raise NotImplementedError()
 
 
 class StdLogic(SignalType):
