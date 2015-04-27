@@ -103,6 +103,8 @@ class TestAxiAdder(unittest.TestCase):
         # Send commands to the FPGA
         handler = axi.ConnCommandHandler(conn)
         future_intCs, expected_intCs = self.send_commands(handler)
+        # And kill the monitor
+        conn.kill_monitor()
         # Futures are immediately resolved by ConnCommandHandler
         # so we can check if they are correct.
         output_intCs = [f.result() for f in future_intCs]
