@@ -7,7 +7,7 @@ import hashlib
 import shutil
 
 from pyvivado import config, task, utils, interface, builder, redis_utils
-from pyvivado import connection, sqlite_collection
+from pyvivado import connection, sqlite_collection, boards
 from pyvivado.hdl.wrapper import inner_wrapper, file_testbench, jtag_axi_wrapper
 
 logger = logging.getLogger(__name__)
@@ -383,6 +383,7 @@ class FPGAProject(BuilderProject):
         with the project parameters and generate the parameters required by
         `BuilderProject.create`.
         '''
+        parameters['board_params'] = boards.get_board_params[board]
         jtagaxi_builder = jtag_axi_wrapper.JtagAxiWrapperBuilder(parameters)
         return {
             'design_builders': [the_builder, jtagaxi_builder],

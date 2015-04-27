@@ -8,13 +8,14 @@ class JtagAxiWrapperBuilder(builder.Builder):
         super().__init__(params, package_name='JtagAxiWrapper')
         self.top_name = params['top_name']
         self.top_parameters = params.get('top_parameters', {})
+        self.board_params = params['board_params']
         self.packages = [
             'axi_utils',
         ]
         self.ips = [
             ('clk_wiz', (
-                ('PRIM_IN_FREQ', 200),
-                ('PRIM_SOURCE', 'Differential_clock_capable_pin'),
+                ('PRIM_IN_FREQ', params['board_params']['clock_frequency']),
+                ('PRIM_SOURCE', params['board_params']['clock_type']),
                 ('CLKOUT1_REQUESTED_OUT_FREQ', params['frequency']),
             ), 'clk_wiz_0'),
             ('jtag_axi', (
@@ -37,7 +38,7 @@ class JtagAxiWrapperBuilder(builder.Builder):
     def required_filenames(self, directory):
         return [
             self.get_filename(directory),
-            os.path.join(config.hdldir, 'wrapper', 'jtag_axi_wrapper.xdc')
+            self.board_params['xdc_filename']
         ]
 
 builder.package_register['JtagAxiWrapper'] = JtagAxiWrapperBuilder
