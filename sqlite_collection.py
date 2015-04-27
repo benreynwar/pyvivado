@@ -1,6 +1,11 @@
 import sqlite3
 
 class SQLLiteCollection(object):
+    '''
+    Wraps a SQLLite database where we write information about 
+    tasks (Vivado processes).  This doesn't get used that much but it feels
+    like it could be very useful for automating things down the road.
+    '''
 
     COMPULSORY_FIELDS = set(['parent_directory'])
     OPTIONAL_FIELDS = set(['directory', 'description', 'state'])
