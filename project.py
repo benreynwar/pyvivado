@@ -41,6 +41,10 @@ class Project(object):
         # Sort IPs by their name.
         def get_name(a):
             return a[2]
+        ips = sorted(list(ips), key=get_name)
+        # Check that names are unique
+        names = [a[2] for a in ips]
+        assert(len(names) == len(set(names)))
         design_files_hash = utils.files_hash(design_files)
         simulation_files_hash = utils.files_hash(simulation_files)
         # FIXME: Not sure whether this will work properly for
@@ -49,6 +53,8 @@ class Project(object):
         h.update(utils.files_hash(design_files))
         h.update(utils.files_hash(simulation_files))
         h.update(ips_hash)
+        logger.debug('design {} simulation {} ips {}'.format(
+            design_files_hash, simulation_files_hash, ips_hash))
         return h.digest()
 
     @staticmethod
