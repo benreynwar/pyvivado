@@ -55,6 +55,7 @@ class Builder(object):
              is specifying a package rather than a module.
         '''
         self.params = params
+        self.constants = {}
         # Simple filenames is a helper for simple builders where the
         # file already exist and don't need to be generated.
         self.simple_filenames = []
@@ -218,3 +219,19 @@ def build_all(directory, top_builders=[], top_package=None, top_params={},
             builder.build(directory=directory)
     requirements = get_requirements(builders, directory)
     return requirements
+
+
+def make_simple_builder(filenames=[], builders=[], ips=[]):
+    '''
+    Construct a builder that takes no parameters.
+    '''
+    class SimpleBuilder(Builder):
+        
+        def __init__(self, params, package_name=None):
+            assert(params == {})
+            super().__init__(params=params, package_name=package_name)
+            self.simple_filenames = filenames
+            self.builders = builders
+            self.simple_ips = ips
+            
+    return SimpleBuilder
