@@ -86,7 +86,12 @@ class TestAxiAdder(unittest.TestCase):
         p = project.FPGAProject.create_or_update(
             the_builder=the_builder,
             parameters={
+                # The name of the top module.
                 'top_name': 'axi_adder',
+                # The name of the generator of this module.
+                # i.e. For looking up the builder, interface or comm.
+                'factory_name': 'axi_adder',
+                # The frequency to run the module at on the FPGA.
                 'frequency': 100,
             },
             directory=directory,

@@ -42,9 +42,10 @@ class Interface(object):
         packages: A list of packages that are required by a wrapper around the module.
             (i.e. The packages that define the input and output types).
         clock_names: A list of input clocks for the module.
-        factory_name: The IP blocks the factory_name is the name of the IP block. The
+        factory_name: For IP blocks the factory_name is the name of the IP block. The
             module_name may be different since it is specific to that set of IP
-            parameters.
+            parameters.  This is also used anytime a module may be generated from 
+            different sets of the parameters.
         needs_dummy: Generates an extra wrapper around the module that does nothing.
             Necessary when creating interfaces to simulate a IP block by itself.
         constants: Somewhere to throw other values that you want to store in the

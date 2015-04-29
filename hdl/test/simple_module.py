@@ -5,6 +5,8 @@ from pyvivado import interface, signal, config, builder
 
 logger = logging.getLogger(__name__)
 
+factory_name = 'SimpleModule'
+
 class SimpleModuleBuilder(builder.Builder):
     '''
     Responsible for creating (or specifying) the necessary HDL files
@@ -16,7 +18,6 @@ class SimpleModuleBuilder(builder.Builder):
     
     def __init__(self, params):
         super().__init__(params)
-        module_name = 'SimpleModule'
         self.simple_filenames = [
             os.path.join(config.hdldir, 'test', 'simple_module.vhd'),
         ]
@@ -26,7 +27,7 @@ def get_simple_module_interface(params):
     Creates an interface object that is used to generate the verification
     wrappers.
     '''
-    module_name = 'SimpleModule'
+    module_name = factory_name
     data_width = params['data_width']
     builder = SimpleModuleBuilder({})
     module_parameters = {
@@ -46,4 +47,4 @@ def get_simple_module_interface(params):
         builder=builder)
     return iface
 
-interface.add_to_module_register('SimpleModule',  get_simple_module_interface)
+interface.add_to_module_register(factory_name,  get_simple_module_interface)

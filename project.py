@@ -261,8 +261,7 @@ class BuilderProject(Project):
 
     @classmethod
     def delete_if_changed(cls, design_builders, simulation_builders, parameters, directory,
-               tasks_collection=None, part='', board='', top_module='',
-               factory_name=None):
+               tasks_collection=None, part='', board='', top_module=''):
         '''
         Check if the dependencies of the project have changed.  If they have delete
         the project so that it can be recreated later.
@@ -279,10 +278,6 @@ class BuilderProject(Project):
             `part`: The 'part' to use when implementing.
             `board`: The 'board' to use when implementing.
             `top_module`: The top level module in the design.
-            `factory_name`: The name of the builder that creates the top level module.
-                Don't specify if this is the same as `top_module`, but it is often
-                different since the module name may depend on the parameters used
-                by the builder.
         '''
         if os.path.exists(directory):
             # Check that project file exists
@@ -305,8 +300,7 @@ class BuilderProject(Project):
             
     @classmethod
     def create(cls, design_builders, simulation_builders, parameters, directory,
-               tasks_collection=None, part='', board='', top_module='',
-               factory_name=None):
+               tasks_collection=None, part='', board='', top_module=''):
         '''
         Create a new Vivado project from `Builder`'s specifying the top level
         modules.  Spawns a Viavdo process to create the project and returns a 
@@ -316,7 +310,9 @@ class BuilderProject(Project):
         Args:
             `design_builders`: The builders responsible for the synthesizable code.
             `simulation_builders`: The builders responsible for the simulation code.
-            `parameters`: Top level parameters used to generated the design.
+            `parameters`: Top level parameters used to generated the design.  Must include
+                'factory_name' which will be used to find the `interface` for test bench
+                projects that read the parameters and the `comm` for fpga projects. 
             `temp_directory`: We temporary directory where we'll generate the files
                 so we can work out the hash.
             `directory`: The real project location.  This is required since some
@@ -325,15 +321,9 @@ class BuilderProject(Project):
             `part`: The 'part' to use when implementing.
             `board`: The 'board' to use when implementing.
             `top_module`: The top level module in the design.
-            `factory_name`: The name of the builder that creates the top level module.
-                Don't specify if this is the same as `top_module`, but it is often
-                different since the module name may depend on the parameters used
-                by the builder.
         '''
         
-        if factory_name:
-            cls.write_params(params=parameters, factory_name=factory_name,
-                             directory=directory)
+        cls.write_params(params=parameters, directory=directory)
         design_requirements = builder.build_all(
             directory, top_builders=design_builders, top_params=parameters)
         simulation_requirements = builder.build_all(
@@ -362,24 +352,22 @@ class BuilderProject(Project):
         return params
 
     @classmethod
-    def params_text(cls, params, factory_name=None):
-        if factory_name is None:
-            assert('factory_name' in params)
-        else:
-            params['factory_name'] = factory_name
+    def params_text(cls, params):
+        if 'factory_name' not in params:
+            raise ValueError('Parameters used to create a BuilderProject must contain a "factory_name"')
         as_json = json.dumps(params, sort_keys=True,
                              indent=2, separators=(',', ': '))
         return as_json
 
     @classmethod
-    def write_params(cls, params, directory, factory_name=None):
+    def write_params(cls, params, directory):
         '''
         Write the parameters that were used to generate this project.
         '''
         fn = os.path.join(directory, 'params.txt')
         if os.path.exists(fn):
             raise Exception('Parameters file already exists.')
-        as_json = cls.params_text(params, factory_name)
+        as_json = cls.params_text(params)
         with open(fn, 'w') as f:
             f.write(as_json)
                 
@@ -409,7 +397,6 @@ class FPGAProject(BuilderProject):
             'tasks_collection': tasks_collection,
             'part': part,
             'board': board,
-            'factory_name': parameters['factory_name'],
         }
 
     @classmethod
@@ -573,6 +560,7 @@ class FileTestBenchProject(BuilderProject):
         file_testbench_builder = file_testbench.FileTestbenchBuilder({
             'interface': interface,
         })
+        interface.parameters['factory_name'] = interface.factory_name
         return {
             'design_builders': [inner_wrapper_builder, interface.builder],
             'simulation_builders': [file_testbench_builder],
@@ -582,7 +570,6 @@ class FileTestBenchProject(BuilderProject):
             'part': part,
             'board': board,
             'top_module': 'FileTestBench',
-            'factory_name': interface.factory_name,
         }
             
     @classmethod
