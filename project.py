@@ -332,7 +332,8 @@ class BuilderProject(Project):
         '''
         
         if factory_name:
-            cls.write_params(parameters, factory_name, directory)
+            cls.write_params(params=parameters, factory_name=factory_name,
+                             directory=directory)
         design_requirements = builder.build_all(
             directory, top_builders=design_builders, top_params=parameters)
         simulation_requirements = builder.build_all(
@@ -360,16 +361,25 @@ class BuilderProject(Project):
             params = json.load(f)
         return params
 
-    def write_params(params, factory_name, directory):
+    @classmethod
+    def params_text(cls, params, factory_name=None):
+        if factory_name is None:
+            assert('factory_name' in params)
+        else:
+            params['factory_name'] = factory_name
+        as_json = json.dumps(params, sort_keys=True,
+                             indent=2, separators=(',', ': '))
+        return as_json
+
+    @classmethod
+    def write_params(cls, params, directory, factory_name=None):
         '''
         Write the parameters that were used to generate this project.
         '''
         fn = os.path.join(directory, 'params.txt')
-        params['factory_name'] = factory_name
         if os.path.exists(fn):
             raise Exception('Parameters file already exists.')
-        as_json = json.dumps(params, sort_keys=True,
-                             indent=2, separators=(',', ': '))
+        as_json = cls.params_text(params, factory_name)
         with open(fn, 'w') as f:
             f.write(as_json)
                 
@@ -389,7 +399,7 @@ class FPGAProject(BuilderProject):
         with the project parameters and generate the parameters required by
         `BuilderProject.create`.
         '''
-        parameters['board_params'] = boards.get_board_params[board]
+        parameters['board_params'] = boards.get_board_params(board)
         jtagaxi_builder = jtag_axi_wrapper.JtagAxiWrapperBuilder(parameters)
         return {
             'design_builders': [the_builder, jtagaxi_builder],
@@ -399,7 +409,7 @@ class FPGAProject(BuilderProject):
             'tasks_collection': tasks_collection,
             'part': part,
             'board': board,
-            'factory_name': the_builder.module_name,
+            'factory_name': parameters['factory_name'],
         }
 
     @classmethod
