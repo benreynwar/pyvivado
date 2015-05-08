@@ -403,7 +403,8 @@ class Array(SignalType):
     The signal type for a VHDL array.
     '''
     
-    def __init__(self, contained_type, size, name=None, conversion_name=None):
+    def __init__(self, contained_type, size, name=None, conversion_name=None,
+                 named_type=True):
         '''
         Args:
             `contained_type`: The signal type of the items we are making
@@ -411,12 +412,14 @@ class Array(SignalType):
             `size`: The number of items in the array.
             `name`: If we are defining a new VHDL subtype, this is its name.
             `conversion_name`: The name used in conversion functions.
+            `named_type`: Set to True only if you're passing in the name of
+               an unconstrained array.
         '''
         if (name is None):
             name = 'array_of_{}'.format(contained_type.name)
             self.named_type = False
         else:
-            self.named_type = True
+            self.named_type = named_type
         super().__init__(name=name, conversion_name=conversion_name)
         self.contained_type = contained_type
         self.size = size
