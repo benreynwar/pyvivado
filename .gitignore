@@ -6,3 +6,5 @@ vivado.jou
 vivado.log
 vivado_pid*.str
 proj_*
+vivado*.jou
+vivado*.log

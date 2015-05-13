@@ -27,7 +27,7 @@ class Interface(object):
     def __init__(self, wires_in, wires_out, module_name, parameters,
                  builder, module_parameters={}, packages=[],
                  clock_names=[], factory_name=None,
-                 needs_dummy=False, constants=[]):
+                 needs_dummy=False, constants=[], language='vhdl'):
         '''
         wires_in: A list of tuples of (wire_name, wire_type) where wire type is
             a `SignalType` object.  Represents the inputs to module.
@@ -50,6 +50,8 @@ class Interface(object):
             Necessary when creating interfaces to simulate a IP block by itself.
         constants: Somewhere to throw other values that you want to store in the
             interface.
+        language: What language we should use to generate the inner wrapper.  For
+            complex types in the input/output this should be the same as the top level.
         '''
         if factory_name is None:
             factory_name = module_name
@@ -66,6 +68,7 @@ class Interface(object):
         self.needs_dummy = needs_dummy
         self.wrapped_module_name = self.module_name
         self.constants = constants
+        self.language = language
         if needs_dummy:
             self.module_name = 'DummyDutWrapper'
 

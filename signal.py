@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 from pyvivado import config, utils
 
+
 def logceil(n):
     '''
     Find the minimum number of bits that can represent an index that
@@ -45,6 +46,7 @@ class SignalType(object):
     '''
 
     base_type = None
+    register = {}
 
     def __init__(self, name, conversion_name=None):
         '''
@@ -55,7 +57,10 @@ class SignalType(object):
             `conversion_name`: The name used for this type in
                 conversion functions.
         '''
+        self.register[name] = self
         self.name = name
+        if getattr(self, 'sv_name', None) is None:
+            self.sv_name = name
         if conversion_name is None:
             conversion_name = name
         self.conversion_name = conversion_name
@@ -63,9 +68,16 @@ class SignalType(object):
     def typ(self):
         '''
         A string in VHDL that defines a signal of this type
-        (e.g. 'std_logic_vector(3 downto 2)'.
+        (e.g. 'std_logic_vector(3 downto 2)').
         '''
         return self.name
+
+    def sv_typ(self):
+        '''
+        A string in SystemVerilog that defines a signal of this type
+        (e.g. 'logic[3: 2]').
+        '''
+        return self.sv_name
 
     def defs_and_imps(self):
         '''
@@ -89,7 +101,15 @@ class SignalType(object):
         '''
         to_slv = '{name}_to_slv({v})'.format(name=self.conversion_name, v=v)
         return to_slv
-        
+
+    def sv_conversion_to_slv(self, v):
+        '''
+        Returns a string of a SystemVerilog function converting a value of this type
+        into a logic array.
+
+        '''
+        return self.conversion_to_slv(v)
+
     def conversion_from_slv(self, v):
         '''
         Returns a string VHDL function converting a std_logic_vector into
@@ -97,6 +117,13 @@ class SignalType(object):
         '''
         from_slv = '{name}_from_slv({v})'.format(name=self.conversion_name, v=v)
         return from_slv
+
+    def sv_conversion_from_slv(self, v):
+        '''
+        Returns a string SystemVerilog function converting a logic array into
+        this type.
+        '''        
+        return self.conversion_from_slv(v)
 
     def to_bitstring(self, v):
         '''
@@ -119,11 +146,19 @@ class StdLogic(SignalType):
     def __init__(self):
         self.width = 1
         self.named_type = True
+        self.sv_name = 'logic'
         super().__init__(name='std_logic')
 
     def conversion_from_slv(self, v):
         from_slv = '{v}(0)'.format(v=v)
         return from_slv
+
+    def sv_conversion_from_slv(self, v):
+        from_slv = '{v}[0]'.format(v=v)
+        return from_slv
+
+    def sv_conversion_to_slv(self, v):
+        return '{v}'.format(v=v)
 
     def to_bitstring(self, value):
         if value in (0, False):
@@ -157,6 +192,7 @@ class StdLogicVector(SignalType):
     '''
 
     base_type = 'std_logic_vector'
+    base_sv_type = 'logic'
 
     def __init__(self, width, name=None):
         '''
@@ -167,6 +203,7 @@ class StdLogicVector(SignalType):
         self.width = width
         if name is None:
             self.name = self.base_type
+            self.sv_name = self.base_sv_type
             self.named_type = False
         else:
             self.named_type = True
@@ -177,6 +214,13 @@ class StdLogicVector(SignalType):
             typ = self.name
         else:
             typ = '{}({}-1 downto 0)'.format(self.base_type, self.width)
+        return typ
+
+    def sv_typ(self):
+        if self.named_type:
+            typ = self.sv_name
+        else:
+            typ = '{}[{}-1: 0]'.format(self.base_sv_type, self.width)
         return typ
 
     def defs_and_imps(self):
@@ -191,8 +235,14 @@ class StdLogicVector(SignalType):
     def conversion_to_slv(self, v):
         return 'std_logic_vector({v})'.format(v=v)
 
+    def sv_conversion_to_slv(self, v):
+        return '{v}'.format(v=v)
+
     def conversion_from_slv(self, v):
         return '{base_type}({v})'.format(base_type=self.base_type, v=v)
+
+    def sv_conversion_from_slv(self, v):
+        return '{v}'.format(v=v)
 
     def to_bitstring(self, value):
         bits = unsigned_integer_to_std_logic_vector(value, self.width)
@@ -210,7 +260,10 @@ class Unsigned(StdLogicVector):
     # Since we treat std_logic_vector as unsigned integers in python
     # this class doesn't need to do much.
     base_type = 'unsigned'
-
+    # In SystemVerilog logic is unsigned by default so this makes no
+    # difference but nice to put it in to be explicity that we
+    # depend on unsigned behavior.
+    base_sv_type = 'logic unsigned'
 
 unsigned_type = Unsigned('unsigned')
 
@@ -221,6 +274,7 @@ class Signed(StdLogicVector):
     '''
 
     base_type = 'signed'
+    base_sv_type = 'logic signed'
     
     def to_bitstring(self, value):
         bits = signed_integer_to_std_logic_vector(value, self.width)
@@ -240,6 +294,8 @@ class Integer(SignalType):
     '''
 
     base_type = 'integer'
+    # We don't support Integer for SystemVerilog
+    base_sv_type = None
 
     def __init__(self, minimum, maximum, name=None):
         if name is None:
@@ -684,3 +740,21 @@ def uint_to_list_of_uints(uint, size, width):
     list_of_sints = array_signal.from_bitstring(bitstring)
     return list_of_sints
     
+signal_type_classes_register = {
+    'StdLogicVector': StdLogicVector,
+    'Signed': Signed,
+    'Unsigned': Unsigned,
+}
+
+def signal_type_from_params(params):
+    typ = params.get('typ', None)
+    if typ is not None:
+        if typ not in SignalType.register:
+            raise ValueError('Unknown signal type: {}'.format(typ))
+        signal_type = SignalType.register[signal_type]
+    else:
+        typ_class = params.get('typ_class')
+        kwargs = dict([(k, v) for k, v in params.items() if k != 'typ_class'])
+        signal_type = type_class(**kwargs)
+    return signal_type
+
