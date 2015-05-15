@@ -72,12 +72,12 @@ class SignalType(object):
         '''
         return self.name
 
-    def sv_typ(self):
+    def sv_typ(self, wire_name):
         '''
         A string in SystemVerilog that defines a signal of this type
         (e.g. 'logic[3: 2]').
         '''
-        return self.sv_name
+        return '{} {}'.format(self.sv_name, wire_name)
 
     def defs_and_imps(self):
         '''
@@ -203,7 +203,7 @@ class StdLogicVector(SignalType):
         self.width = width
         if name is None:
             self.name = self.base_type
-            self.sv_name = self.base_sv_type
+            self.sv_name = self.base_sv_type + '[{}-1: 0]'.format(width)
             self.named_type = False
         else:
             self.named_type = True
@@ -216,11 +216,11 @@ class StdLogicVector(SignalType):
             typ = '{}({}-1 downto 0)'.format(self.base_type, self.width)
         return typ
 
-    def sv_typ(self):
+    def sv_typ(self, wire_name):
         if self.named_type:
-            typ = self.sv_name
+            typ = '{} {}'.format(self.sv_name, wire_name)
         else:
-            typ = '{}[{}-1: 0]'.format(self.base_sv_type, self.width)
+            typ = '{}[{}-1: 0] {}'.format(self.base_sv_type, self.width, wire_name)
         return typ
 
     def defs_and_imps(self):
@@ -488,6 +488,27 @@ class Array(SignalType):
             typ = '{}({}-1 downto 0)'.format(self.name, self.size)
         return typ
 
+    def sv_typ(self, wire_name):
+        if self.named_type:
+            typ = self.name
+        else:
+            typ = '{contained_name} {wire_name} [{size}-1: 0]'.format(
+                size=self.size,
+                contained_name=self.contained_type.sv_name,
+                wire_name=wire_name)
+        return typ
+
+    def sv_conversion_from_slv(self, v):
+        if self.named_type:
+            conv = self.conversion_from_slv(v)
+        elif ((not self.contained_type.named_type) and
+              (isinstance(self.contained_type, StdLogicVector))):
+            conv = 'pyvivado_utils::Logic2DHelper#({width}, {size})::from_logic({v})'.format(
+                size=self.size, width=self.contained_type.width, v=v)
+        else:
+            raise ValueError('This type not supported by pyvivado for SystemVerilog yet.')
+        return conv
+
     def defs_and_imps(self):
         if self.named_type:
             defs = (
@@ -751,10 +772,10 @@ def signal_type_from_params(params):
     if typ is not None:
         if typ not in SignalType.register:
             raise ValueError('Unknown signal type: {}'.format(typ))
-        signal_type = SignalType.register[signal_type]
+        signal_type = SignalType.register[typ]
     else:
         typ_class = params.get('typ_class')
         kwargs = dict([(k, v) for k, v in params.items() if k != 'typ_class'])
-        signal_type = type_class(**kwargs)
+        signal_type = signal_type_classes_register[typ_class](**kwargs)
     return signal_type
 

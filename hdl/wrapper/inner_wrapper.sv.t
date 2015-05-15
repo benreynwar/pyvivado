@@ -1,5 +1,7 @@
 // -*- verilog -*- 
-  
+
+import pyvivado_utils::*;
+
 module InsideDutWrapper
   ({% for signal in signals_in %}
     input logic [{{signal.width}}-1: 0] idw_slv_{{signal.name}},{% endfor %}{% for signal in signals_out %}
@@ -10,9 +12,9 @@ module InsideDutWrapper
   );
 
   {% for signal in signals_in %}
-  {{signal.sv_typ}} idw_{{signal.name}};{% endfor %}
+  {{signal.sv_typ}};{% endfor %}
   {% for signal in signals_out %}
-  {{signal.sv_typ}} idw_{{signal.name}};{% endfor %}
+  {{signal.sv_typ}};{% endfor %}
   {% for signal in signals_in %}
   assign idw_{{signal.name}} =  {{signal.sv_from_slv}};{% endfor %}
   {% for signal in signals_out %}
