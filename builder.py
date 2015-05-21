@@ -235,3 +235,28 @@ def make_simple_builder(filenames=[], builders=[], ips=[]):
             self.simple_ips = ips
             
     return SimpleBuilder
+
+def make_template_builder(template_fn):
+    '''
+    Construct a Builder that formats a template.
+    '''
+    possible_endings = ('.vhd.t', '.v.t', '.sv.t')
+    stem = None
+    for ending in possible_endings:
+        if template_fn[-len(ending):] == ending:
+            stem = template_fn[:len(ending)]
+            suffix = template_fn[-len(ending):]
+    if stem is None:
+        raise ValueError('Template {} does not end with an expected ending {}').format(
+            template_fn, possible_endings)
+
+    class TemplateBuilder(Builder):
+        
+        def __init__(self, params):
+            super().__init__(params)
+            self.params_hash = hash(make_hashable(params))
+        
+        def filename(self, directory):
+            return os.path.join(
+                directory, '{}{}{}'.format(stem, self.params_hash, suffix))
+    
