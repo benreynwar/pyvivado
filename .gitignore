@@ -8,3 +8,7 @@ vivado_pid*.str
 proj_*
 vivado*.jou
 vivado*.log
+webtalk*
+/project
+/target
+/test_outputs
