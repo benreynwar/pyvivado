@@ -98,7 +98,7 @@ begin
                 i_s(m_last_write_index).bvalid;
   o_m.rdata <= i_s(m_last_read_index).rdata;
   o_m.rresp <= axi_resp_DECERR when m_bad_read_component_address = '1' else
-               i_s(m_last_read_index).bresp;
+               i_s(m_last_read_index).rresp;
   o_m.rvalid <= '1' when m_bad_read_component_address = '1' else
                 i_s(m_last_read_index).rvalid;
   -- Always be ready to be written to even if we're waiting for response.
