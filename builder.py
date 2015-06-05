@@ -163,7 +163,6 @@ def get_all_builders(top_builders=[], top_package=None, top_params={}):
                 todo_builders[_id] = new_builder
         for new_package in active_builder.required_packages():
             if new_package not in done_builders:
-                logger.debug(new_package)
                 package_builder = package_register[new_package](top_params)
                 assert(package_builder._id() == new_package)
                 todo_builders[new_package] = package_builder
