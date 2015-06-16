@@ -216,6 +216,108 @@ class Project(object):
         t.log_messages(t.get_messages())
         return t
 
+    def utilization_file(self, from_synthesis=False):
+        if from_synthesis:
+            fn = 'synth_utilization.txt'
+        else:
+            fn = 'impl_utilization.txt'
+        fn = os.path.join(self.directory, fn)
+        return fn
+
+    def power_file(self, from_synthesis=False):
+        if from_synthesis:
+            fn = 'synth_power.txt'
+        else:
+            fn = 'impl_power.txt'
+        fn = os.path.join(self.directory, fn)
+        return fn
+
+    def get_power(self, from_synthesis=False):
+        fn = self.power_file(from_synthesis=from_synthesis)
+        pwer = None
+        with open(fn, 'r') as f:
+            for line in f:
+                bits = [s.strip() for s in line.split('|')]
+                if (len(bits) == 4) and (bits[1] == 'dut'):
+                    pwer = float(bits[2])
+        return pwer
+
+    def get_utilization(self, from_synthesis=False):
+        fn = self.utilization_file(from_synthesis=from_synthesis)
+        parents = []
+        with open(fn, 'r') as f:
+            found_hier = False
+            for line in f:
+                if not found_hier:
+                    bits = [s.strip() for s in line.split('|')]
+                    if (len(bits) > 1) and (bits[1] == 'Instance'):
+                        categories = bits[3: -1]
+                        found_hier = True
+                else:
+                    bits = line.split('|')
+                    if len(bits) > 2:
+                        hier_level = (len(bits[1]) - len(bits[1].lstrip()) - 1)//2
+                        this_ut = {
+                            'Instance': bits[1].strip(),
+                            'Module': bits[2].strip(),
+                            'children': [],
+                        }
+                        for index, category in enumerate(categories):
+                            this_ut[category] = int(bits[index+3].strip())
+                        if len(parents) == 0:
+                            assert(hier_level == 0)
+                            parents = [this_ut]
+                        else:
+                            parent = parents[hier_level-1]
+                            parent['children'].append(this_ut)
+                            parents = parents[:hier_level] + [this_ut]
+        return parents[0]
+
+    def synthesize(self):
+        '''
+        Spawn a Vivado process to synthesize the project.
+        '''
+        t = task.VivadoTask.create(
+            parent_directory=self.directory,
+            command_text='::pyvivado::open_and_synthesize {{{}}}'.format(
+                self.directory),
+            description='Synthesize project.',
+            tasks_collection=self.tasks_collection,
+        )
+        t.run()
+        return t
+
+    def implement(self):
+        '''
+        Spawn a Vivado process to implement the project.
+        '''
+        t = task.VivadoTask.create(
+            parent_directory=self.directory,
+            command_text='::pyvivado::open_and_implement {{{}}}'.format(
+                self.directory),
+            description='Implement project.',
+            tasks_collection=self.tasks_collection,
+        )
+        t.run()
+        return t
+
+    def generate_reports(self, from_synthesis=False):
+        '''
+        Spawn a Vivado process to generate reports
+        '''
+        if from_synthesis:
+            command_templ = '::pyvivado::generate_synth_reports {{{}}}'
+        else:
+            command_templ = '::pyvivado::generate_impl_reports {{{}}}'
+        t = task.VivadoTask.create(
+            parent_directory=self.directory,
+            command_text=command_templ.format(self.directory),
+            description='Generate reports.',
+            tasks_collection=self.tasks_collection,
+        )
+        t.run()
+        return t        
+
 
 class BuilderProject(Project):
     '''
@@ -342,6 +444,48 @@ class BuilderProject(Project):
         )
         return p
 
+    @classmethod
+    def create_or_update(cls, design_builders, simulation_builders, parameters, directory,
+               tasks_collection=None, part='', board='', top_module=''):
+        '''
+        Create a new BuilderProject if one does not already exist in the 
+        directory.  If one does exist and the dependencies have been modified
+        then delete the old project and create a new one.  If one does exist
+        and the dependencies have not been modified then use the existing
+        project.
+        '''
+        if os.path.exists(directory):
+            cls.delete_if_changed(
+                design_builders=design_builders,
+                simulation_builders=simulation_builders,
+                parameters=parameters,
+                directory=directory,
+                tasks_collection=tasks_collection,
+                part=part,
+                board=board,
+                top_module=top_module,
+            )
+        if os.path.exists(directory):
+            logger.debug('Using old Project.')
+            p = cls(directory=directory, tasks_collection=tasks_collection)
+        else:
+            logger.debug('Making new Project.')
+            os.makedirs(directory)
+            p = cls.create(
+                design_builders=design_builders,
+                simulation_builders=simulation_builders,
+                parameters=parameters,
+                directory=directory,
+                tasks_collection=tasks_collection,
+                part=part,
+                board=board,
+                top_module=top_module,
+            )
+            t = p.wait_for_most_recent_task()
+            errors = t.get_errors()
+            assert(len(errors) == 0)
+        return p
+
     def read_params(self):
         '''
         Read the parameters that were used to generate this project.
@@ -370,7 +514,7 @@ class BuilderProject(Project):
         as_json = cls.params_text(params)
         with open(fn, 'w') as f:
             f.write(as_json)
-                
+
 
 class FPGAProject(BuilderProject):
     '''
@@ -526,20 +670,6 @@ class FPGAProject(BuilderProject):
         conn = connection.Connection(hwcode)
         return t, conn
 
-    def implement(self):
-        '''
-        Spawn a Vivado process to implement the project.
-        '''
-        t = task.VivadoTask.create(
-            parent_directory=self.directory,
-            command_text='::pyvivado::open_and_implement {{{}}}'.format(
-                self.directory),
-            description='Implement project.',
-            tasks_collection=self.tasks_collection,
-        )
-        t.run()
-        return t
-        
 
 class FileTestBenchProject(BuilderProject):
     '''

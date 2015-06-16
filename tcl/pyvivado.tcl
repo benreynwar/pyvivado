@@ -103,6 +103,12 @@ proc ::pyvivado::implement_without_bitstream {} {
     }
 }
 
+# Open the project (specified by the `proj_dir`) and sythesize
+proc ::pyvivado::open_and_synthesize {proj_dir} {
+    open_project "${proj_dir}/TheProject.xpr"
+    ::pyvivado::synthesize
+}
+
 # Open the project (specified by the `proj_dir`) and implement
 # it.
 proc ::pyvivado::open_and_implement {proj_dir} {
@@ -303,3 +309,16 @@ proc ::pyvivado::write_axi {address value} {
     return $results
 }
 
+proc ::pyvivado::generate_impl_reports {proj_dir} {
+    open_project "${proj_dir}/TheProject.xpr"
+    open_run impl_1
+    report_power -file ${proj_dir}/impl_power.txt
+    report_utilization -file ${proj_dir}/impl_utilization.txt -hierarchical -hierarchical_depth 3
+}
+
+proc ::pyvivado::generate_synth_reports {proj_dir} {
+    open_project "${proj_dir}/TheProject.xpr"
+    open_run synth_1
+    report_power -file ${proj_dir}/synth_power.txt
+    report_utilization -file ${proj_dir}/synth_utilization.txt -hierarchical -hierarchical_depth 3
+}
