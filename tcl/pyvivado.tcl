@@ -75,7 +75,11 @@ proc ::pyvivado::is_implemented {} {
 }
 
 # Synthesize the project if it hasn't been yet.
-proc ::pyvivado::synthesize {} {
+proc ::pyvivado::synthesize {keep_hierarchy} {
+    set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY full [get_runs synth_1]
+    if {$keep_hierarchy != ""} {
+	set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY none [get_runs synth_1]
+    }
     set synthesized [::pyvivado::is_synthesized]
     if {$synthesized == 0} {
         launch_runs synth_1
@@ -104,9 +108,9 @@ proc ::pyvivado::implement_without_bitstream {} {
 }
 
 # Open the project (specified by the `proj_dir`) and sythesize
-proc ::pyvivado::open_and_synthesize {proj_dir} {
+proc ::pyvivado::open_and_synthesize {proj_dir keep_hierarchy} {
     open_project "${proj_dir}/TheProject.xpr"
-    ::pyvivado::synthesize
+    ::pyvivado::synthesize $keep_hierarchy
 }
 
 # Open the project (specified by the `proj_dir`) and implement

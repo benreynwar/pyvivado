@@ -273,14 +273,17 @@ class Project(object):
                             parents = parents[:hier_level] + [this_ut]
         return parents[0]
 
-    def synthesize(self):
+    def synthesize(self, keep_hierarchy=False):
         '''
         Spawn a Vivado process to synthesize the project.
         '''
+        if keep_hierarchy:
+            command_templ='::pyvivado::open_and_synthesize {{{}}} "keep_hierarchy"'
+        else:
+            command_templ='::pyvivado::open_and_synthesize {{{}}}'
         t = task.VivadoTask.create(
             parent_directory=self.directory,
-            command_text='::pyvivado::open_and_synthesize {{{}}}'.format(
-                self.directory),
+            command_text=command_templ.format(self.directory),
             description='Synthesize project.',
             tasks_collection=self.tasks_collection,
         )
