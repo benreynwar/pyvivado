@@ -238,8 +238,12 @@ class VivadoTask(Task):
 
     def get_stdout(self):
         stdout_fn = os.path.join(self.directory, 'stdout.txt')
-        with open(stdout_fn, 'r') as f:
-            lines = f.readlines()
+        # Might not have been created yet.
+        if os.path.exists(stdout_fn):
+            with open(stdout_fn, 'r') as f:
+                lines = f.readlines()
+        else:
+            lines = []
         return lines
 
     def get_stderr(self):
