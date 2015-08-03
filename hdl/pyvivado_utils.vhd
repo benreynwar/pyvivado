@@ -44,13 +44,12 @@ package body pyvivado_utils is
 
   function or_slv(slv:std_logic_vector) return std_logic is
     variable ii: integer range slv'LOW to slv'HIGH;
+    variable output: std_logic := '0';
   begin
     for ii in slv'LOW to slv'HIGH loop
-      if (slv(ii) = '1') then
-        return '1';
-      end if;
+      output := output or slv(ii);
     end loop;
-    return '0';
+    return output;
   end function;
 
   function and_slv(slv:std_logic_vector) return std_logic is

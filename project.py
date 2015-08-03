@@ -588,8 +588,7 @@ class FPGAProject(BuilderProject):
         '''
         Get the hardware code for the FPGA that this project has been deployed to.
         '''
-        # Wait for the monitor to become available.
-        max_waits = 60
+        max_waits = 120
         n_waits = 0
         hwcode = None
         while (hwcode is None) and (n_waits < max_waits) and (not monitor_task.is_finished()):
@@ -607,6 +606,27 @@ class FPGAProject(BuilderProject):
         if hwcode is None:
             raise Exception('Failed to deploy project')
         return hwcode
+
+    def wait_for_monitor(self, hwcode, monitor_task):
+        max_waits = 120
+        n_waits = 0
+        # Check to see that correct proj_dir is associated with the hwcode
+        # and that it has been monitored recently.
+        def checks_out():
+            projdir_correct = (self.directory == connection.get_hwcode_projdir(hwcode))
+            active = redis_utils.hwcode_A_active(hwcode)
+            return projdir_correct and active
+        while (not checks_out()) and (n_waits < max_waits) and (not monitor_task.is_finished()):
+            n_waits += 1
+            time.sleep(1)
+        # If the task is finished something must have gone wrong
+        # so log it's messages.
+        if monitor_task.is_finished():
+            monitor_task.log_messages(monitor_task.get_messages())
+        deploy_errors = monitor_task.get_errors()
+        logger.debug('Waited {}s to see deployment'.format(n_waits))
+        if (len(deploy_errors) != 0):
+            raise Exception('Got send_to_fpga_and_monitor errors.')
 
     def monitor_existing(self):
         '''
@@ -629,7 +649,7 @@ class FPGAProject(BuilderProject):
             tasks_collection=self.tasks_collection,
         )
         t.run()
-        hwcode = self.get_monitors_hwcode(t)
+        self.wait_for_monitor(hwcode=hwcode, monitor_task=t)
         conn = connection.Connection(hwcode)
         return t, conn
 
@@ -668,7 +688,7 @@ class FPGAProject(BuilderProject):
         t.run()
         # Wait for the task to start monitoring and get the
         # hardware code of the free fpga.
-        hwcode = self.get_monitors_hwcode(t)
+        self.wait_for_monitor(hwcode=hwcode, monitor_task=t)
         # Create a Connection object for communication with the FPGA/
         conn = connection.Connection(hwcode)
         return t, conn
@@ -754,7 +774,7 @@ class FileTestBenchProject(BuilderProject):
 
     def run_simulation(self, input_data, runtime=None, sim_type='hdl'):
         '''
-        Spawns a vivado process that will run of simulation of the project.
+        Spawns a vivado process that will run a simulation of the project.
 
         Args:
             `input_data`: A list of dictionaries of the input wire values.

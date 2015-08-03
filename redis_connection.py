@@ -30,11 +30,10 @@ class Connection(object):
     def is_monitor_alive(self):
         return redis_utils.hwcode_A_active(self.hwcode)
 
-    def kill_monitor(self):
+    def kill_monitor(self, time_limit=10):
         r.set(self.kill, 1)
-        # Wait for 5 seconds
         counter = 0
-        while counter < 5 and self.is_monitor_alive():
+        while counter < time_limit and self.is_monitor_alive():
             time.sleep(1)
             counter += 1
         if self.is_monitor_alive():

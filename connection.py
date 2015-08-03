@@ -22,6 +22,9 @@ Connection = redis_connection.Connection
 # Find unused monitored hardware running a specific project.
 get_projdir_hwcode = redis_utils.get_projdir_hwcode
 
+# Find the projdir for a given hwcode.
+get_hwcode_projdir = redis_utils.hwcode_projdir
+
 # Find unused unmonitored hardware.
 get_free_hwcode = redis_utils.get_free_hwcode
 

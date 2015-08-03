@@ -91,7 +91,7 @@ proc ::pyvivado::synthesize {keep_hierarchy} {
 proc ::pyvivado::implement {} {
     set implemented [::pyvivado::is_implemented]
     if {$implemented == 0} {
-        ::pyvivado::synthesize
+        ::pyvivado::synthesize {}
         launch_runs impl_1 -to_step write_bitstream
         wait_on_run impl_1
     }
@@ -101,7 +101,7 @@ proc ::pyvivado::implement {} {
 proc ::pyvivado::implement_without_bitstream {} {
     set implemented [::pyvivado::is_implemented]
     if {$implemented == 0} {
-        ::pyvivado::synthesize
+        ::pyvivado::synthesize {}
         launch_runs impl_1
         wait_on_run impl_1
     }
@@ -139,7 +139,7 @@ proc ::pyvivado::run_hdl_simulation {proj_dir runtime} {
 # Run a post-synthesis behavioral simulation.
 proc ::pyvivado::run_post_synthesis_simulation {proj_dir runtime} {
     set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY none [get_runs synth_1]
-    ::pyvivado::synthesize
+    ::pyvivado::synthesize {}
     set sim_dir "${proj_dir}/TheProject.sim/sim_1/synth"
     set sim_dir_exists [file isdirectory $sim_dir]
     if {$sim_dir_exists == 1} {
@@ -317,12 +317,12 @@ proc ::pyvivado::generate_impl_reports {proj_dir} {
     open_project "${proj_dir}/TheProject.xpr"
     open_run impl_1
     report_power -file ${proj_dir}/impl_power.txt
-    report_utilization -file ${proj_dir}/impl_utilization.txt -hierarchical -hierarchical_depth 3
+    report_utilization -file ${proj_dir}/impl_utilization.txt -hierarchical -hierarchical_depth 10
 }
 
 proc ::pyvivado::generate_synth_reports {proj_dir} {
     open_project "${proj_dir}/TheProject.xpr"
     open_run synth_1
     report_power -file ${proj_dir}/synth_power.txt
-    report_utilization -file ${proj_dir}/synth_utilization.txt -hierarchical -hierarchical_depth 3
+    report_utilization -file ${proj_dir}/synth_utilization.txt -hierarchical -hierarchical_depth 10
 }

@@ -10,6 +10,14 @@ Vivado projects.
  - Automate generation of Vivado projects.
  - Communicate easily with FPGA-deployed modules from python.
 
+Warning
+-------
+I am actively using this myself for projects (as of Aug 2015), but I'm
+not doing a very good job of making sure all the tests and
+documentation are up to date, or keeping the API constant.  If you're
+thinking of using this for a real project let me know so I know
+somebody else is using it and can start being more careful.
+
 Quick Start
 -----------
 
