@@ -22,6 +22,7 @@ class Connection(object):
     def __init__(self, hwcode):
         if hwcode is None:
             raise ValueError('Hardware code is None')
+        logger.info('Creating connection with hwcode: {}'.format(hwcode))
         self.name = '{}_comm'.format(hwcode)
         self.listened = '{}_last_B'.format(hwcode)
         self.kill = '{}_kill'.format(hwcode)

@@ -280,7 +280,7 @@ class Project(object):
         if keep_hierarchy:
             command_templ='::pyvivado::open_and_synthesize {{{}}} "keep_hierarchy"'
         else:
-            command_templ='::pyvivado::open_and_synthesize {{{}}}'
+            command_templ='::pyvivado::open_and_synthesize {{{}}} {{}}'
         t = task.VivadoTask.create(
             parent_directory=self.directory,
             command_text=command_templ.format(self.directory),
@@ -676,6 +676,7 @@ class FPGAProject(BuilderProject):
         hwcode = redis_utils.get_free_hwcode()
         if hwcode is None:
             raise Exception('No free hardware found.')
+        logger.info('Using hardware: {}'.format(hwcode))
         # Spawn a Vivado process to deploy the bitstream and
         # start monitoring.
         t = task.VivadoTask.create(
@@ -716,7 +717,7 @@ class FileTestBenchProject(BuilderProject):
         interface.parameters['factory_name'] = interface.factory_name
         return {
             'design_builders': [inner_wrapper_builder, interface.builder],
-            'simulation_builders': [file_testbench_builder],
+            'simulation_builders': [file_testbench_builder,],
             'parameters': interface.parameters,
             'directory': directory,
             'tasks_collection': tasks_collection,

@@ -78,7 +78,7 @@ proc ::pyvivado::is_implemented {} {
 proc ::pyvivado::synthesize {keep_hierarchy} {
     set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY full [get_runs synth_1]
     if {$keep_hierarchy != ""} {
-	set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY none [get_runs synth_1]
+	set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY rebuilt [get_runs synth_1]
     }
     set synthesized [::pyvivado::is_synthesized]
     if {$synthesized == 0} {
