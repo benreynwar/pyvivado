@@ -167,7 +167,7 @@ class Project(object):
            `directory`: Location of the vivado project.
            `tasks_collection`: How we keep track of the Vivado processes.
         '''
-        self.directory = directory
+        self.directory = os.path.abspath(directory)
         if tasks_collection is None:
             self.tasks_collection = self.default_tasks_collection(directory)
         else:
@@ -232,18 +232,24 @@ class Project(object):
         fn = os.path.join(self.directory, fn)
         return fn
 
-    def get_power(self, from_synthesis=False):
+    def get_power(self, from_synthesis=False, names=None):
+        if names is None:
+            names = ['Total']
         fn = self.power_file(from_synthesis=from_synthesis)
-        pwer = None
+        pwers = {}
         with open(fn, 'r') as f:
             for line in f:
                 bits = [s.strip() for s in line.split('|')]
-                if (len(bits) == 4) and (bits[1] == 'dut'):
-                    pwer = float(bits[2])
-        return pwer
+                if (len(bits) == 7) and (bits[1] in names):
+                    pwers[bits[1]] = float(bits[2])
+        return pwers
 
     def get_utilization(self, from_synthesis=False):
         fn = self.utilization_file(from_synthesis=from_synthesis)
+        if not os.path.exists(fn):
+            t = self.generate_reports(from_synthesis=from_synthesis)
+            t.wait()
+            t.log_messages(t.get_messages())
         parents = []
         with open(fn, 'r') as f:
             found_hier = False
@@ -580,6 +586,7 @@ class FPGAProject(BuilderProject):
             os.makedirs(directory)
             p = super().create(**parent_params)
             t = p.wait_for_most_recent_task()
+            
             errors = t.get_errors()
             assert(len(errors) == 0)
         return p
