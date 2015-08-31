@@ -555,7 +555,9 @@ def signed_integer_to_std_logic_vector(i, width):
        'i': The signed integer.
        'width': The number of bits to represent it with.
     '''
-    if abs(i) >= pow(2, width-1):
+    if i is None:
+        return 'X' * width
+    if i >= pow(2, width-1) or i < -pow(2, width-1):
         raise ValueError('Cannot convert signed integer {} to std_logic_vector of width {} (not allowing all 1s for safety)'.format(i, width))
     if i < 0:
         i += pow(2, width)
@@ -699,6 +701,18 @@ def complex_to_uint(c, width):
     uint_A = sint_to_uint(c.imag, width)
     uint_B = sint_to_uint(c.real, width)
     uint = uint_A * pow(2, width) + uint_B
+    return uint
+
+def list_of_complexs_to_uint(list_of_complexs, width):
+    '''
+    Convert a list of complex numbers into a single unsigned integer.
+    
+    Args:
+        `list_of_complexs`: The list of complex numbers.
+        `width`: The width of half a complex number.
+    '''
+    list_of_uints = [complex_to_uint(c, width) for c in list_of_complexs]
+    uint = list_of_uints_to_uint(list_of_uints, 2*width)
     return uint
     
 def list_of_uints_to_uint(list_of_uints, width):
