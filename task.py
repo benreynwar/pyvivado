@@ -115,6 +115,9 @@ class VivadoTask(Task):
         'CRITICAL WARNING': logger.error,
         'ERROR': logger.error,
         'FATAL_ERROR': logger.error,
+        # This is a hack to get 'assert's in the HDL with severity 'Failure'
+        # to log an error message.
+        'Failure': logger.error,
     }
 
     @classmethod
@@ -221,7 +224,7 @@ class VivadoTask(Task):
         errors = []
         messages = self.get_messages()
         for message_type, message in messages:
-            if message_type in ('FATAL_ERROR', 'ERROR', 'CRITICAL WARNING'):
+            if message_type in ('FATAL_ERROR', 'ERROR', 'CRITICAL WARNING', 'Failure'):
                 errors.append(message)
         return errors
 
@@ -232,7 +235,7 @@ class VivadoTask(Task):
         errors = []
         messages = self.get_messages()
         for message_type, message in messages:
-            if message_type in ('FATAL_ERROR', 'ERROR', 'CRITICAL WARNING', 'WARNING'):
+            if message_type in ('FATAL_ERROR', 'ERROR', 'CRITICAL WARNING', 'WARNING', 'Failure'):
                 errors.append(message)
         return errors
 

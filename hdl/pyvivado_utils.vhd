@@ -27,8 +27,11 @@ package body pyvivado_utils is
   begin
     if (v = 0) then
       return 0;
+    elsif (v = 1) then
+      return 1;
+    else
+      return integer(ceil(log2(real(v))));
     end if;
-    return integer(ceil(log2(real(v))));
   end function;
 
   function get_index_of_first_one(slv: std_logic_vector) return integer is

@@ -816,8 +816,12 @@ open_project {{{project_filename}}}
         # Run the simulation task and wait for it to complete.
         t.run_and_wait()
         errors = t.get_errors()
-        # Write the output files.
-        data_out = self.interface.read_output_file(
-            os.path.join(t.directory, self.output_filename))
+        if not os.path.exists(self.output_filename):
+            logger.error('Failed to create output file from simulation')
+            data_out = []
+        else:
+            # Read the output files.
+            data_out = self.interface.read_output_file(
+                os.path.join(t.directory, self.output_filename))
         return errors, data_out
 
