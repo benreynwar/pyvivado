@@ -1,6 +1,8 @@
+import os
 import unittest
 import testfixtures
 import logging
+import shutil
 
 from pyvivado import project, config
 
@@ -24,10 +26,19 @@ def check_output(output_data, expected_data):
     testfixtures.compare(output_data, expected_data)
 
 
-def simulate(interface, directory, data, board=config.default_board,
-             part=config.default_part, sim_type='hdl',
+def simulate(interface, directory, data,
+             board=config.default_board,
+             part=config.default_part,
+             sim_type='hdl',
              clock_period=default_clock_period,
-             extra_clock_periods=default_extra_clock_periods):
+             extra_clock_periods=default_extra_clock_periods,
+             force_refresh=False):
+
+    if force_refresh and os.path.exists(directory):
+        shutil.rmtree(directory)
+    if not os.path.exists(directory):
+        os.mkdir(directory)
+
     # Make the project.
     p = project.FileTestBenchProject.create_or_update(
         interface=interface, directory=directory,
