@@ -11,21 +11,20 @@ package pyvivado_utils is
   function get_index_of_first_one(slv: std_logic_vector) return integer;
   function or_slv(slv: std_logic_vector) return std_logic;
   function and_slv(slv: std_logic_vector) return std_logic;
-  function parity(bits: std_logic_vector) return std_logic;
+  -- Add when required due to ambiguousness caused by array of std_logic_vector.
+  function concat(slv1: std_logic_vector; slv2: std_logic_vector) return std_logic_vector;
   
 end package;
 
 package body pyvivado_utils is
 
-  function parity(bits: std_logic_vector) return std_logic is
-      variable out_bit: std_logic;
+  function concat(slv1: std_logic_vector; slv2: std_logic_vector) return std_logic_vector is
+    variable output: std_logic_vector(slv1'length + slv2'length -1 downto 0);
   begin
-    out_bit := '0';
-    for ii in bits'range loop
-      out_bit := out_bit xor bits(ii);
-    end loop;
-    return out_bit;
-  end function;
+    output(slv1'length+slv2'length-1 downto slv2'length) := slv1;
+    output(slv2'length-1 downto 0) := slv2;
+    return output;
+  end;
 
   function std_logic_to_slv(input: std_logic) return std_logic_vector is
     variable output: std_logic_vector(0 downto 0);
