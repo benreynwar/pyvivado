@@ -3,8 +3,12 @@ Python tools for creating and parsing AXI communications.
 '''
 
 import asyncio
+import random
+import logging
 
 from pyvivado import signal
+
+logger = logging.getLogger(__name__)
 
 # `Comm` objects are registered here by the name of the module they are
 # responsible for communicating with.
@@ -520,4 +524,77 @@ class Comm(object):
         self.handler.send([command])
         return command.future
        
+
+class AxiDummy(object):
+    '''
+    Dummy axi module for using to create tests.
+    '''
+
+    MAX_PIPE_LENGTH = 10
+    
+    def __init__(self, max_pipe_length=1):
+        self.reset()
+        self.max_pipe_length = max_pipe_length
+
+    def reset(self):
+        self.write_counter = 0
+        self.read_counter = 0
+
+    def handle_write(self):
+        logger.debug('writing')
+        if self.write_counter:
+            raise Exception('Received write before finished previous write.')
+        self.write_counter = random.randint(2, self.max_pipe_length+1)
+
+    def handle_read(self):
+        if self.read_counter:
+            raise Exception('Received read before finished previous read.')
+        self.read_counter = random.randint(2, self.max_pipe_length)
+
+    def predict(self):
+        bvalid = 0
+        rvalid = 0
+        rdata = 0
+        if self.write_counter:
+            if self.write_counter == 1:
+                bvalid = 1
+        if self.read_counter:
+            if self.read_counter == 1:
+                rvalid = 1
+        o = make_empty_axi4lite_s2m_dict()
+        o['bvalid'] = bvalid
+        o['rvalid'] = rvalid
+        o['rdata'] = rdata
+        return {
+            'o': o,
+        }
+        
+
+    def process(self, inputs):
+        if inputs['i']['wvalid']:
+            assert(inputs['i']['awvalid'] == 1)
+            self.handle_write()
+        if inputs['i']['arvalid']:
+            self.handle_read()
+        bvalid = 0
+        rvalid = 0
+        rdata = 0
+        if self.write_counter:
+            if self.write_counter == 1:
+                bvalid = 1
+            self.write_counter -= 1
+        if self.read_counter:
+            if self.read_counter == 1:
+                rvalid = 1
+            self.read_counter -= 1
+        o = make_empty_axi4lite_s2m_dict()
+        o['bvalid'] = bvalid
+        o['rvalid'] = rvalid
+        o['rdata'] = rdata
+        if inputs['reset']:
+            self.reset()
+        return {
+            'o': o,
+        }
+            
         
