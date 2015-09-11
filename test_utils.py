@@ -64,7 +64,6 @@ def simulate(interface, directory, data,
 
 
 def run_test(test_class, test_name='default_test', logging_level=logging.DEBUG):
-    config.setup_logging(logging_level)
     suite = unittest.TestSuite()
     suite.addTest(test_class(test_name))
     runner = unittest.TextTestRunner()
