@@ -48,12 +48,20 @@ class Builder(object):
     Each module creates a subclass of this.
     '''
 
+    # Hacky solution so that we can have broken modules without
+    # worrying about whether they're getting included in any other
+    # modules.
+    # Override to True in builders of broken modules.
+    broken = False
+
     def __init__(self, params, package_name=None):
         '''
         `params`: The parameters necessary to generate the module files.
         `package_name`: Send in the name of the package if this builder
              is specifying a package rather than a module.
         '''
+        if self.broken:
+            raise Exception('This module is broken.  Do not use.')
         self.params = params
         self.constants = {}
         # Simple filenames is a helper for simple builders where the
