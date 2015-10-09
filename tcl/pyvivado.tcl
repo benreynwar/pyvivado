@@ -177,11 +177,11 @@ proc ::pyvivado::run_timing_simulation {proj_dir runtime} {
 #     `hwcode`: The hardware code of the FPGA we want to deploy it to.
 #     `fake`: If fake == 1 that we don't deploy it we just pretend we 
 #          did any just return 0 for all AXI read commands.
-proc ::pyvivado::send_to_fpga_and_monitor {proj_dir hwcode fake} {
+proc ::pyvivado::send_to_fpga_and_monitor {proj_dir hwcode hwtarget jtagfreq fake} {
     if {$fake == 0} {
 	connect_hw_server -host localhost -port 60001 -url localhost:3121
-	current_hw_target [get_hw_targets */xilinx_tcf/Digilent/$hwcode]
-	set_property PARAM.FREQUENCY 15000000 [get_hw_targets */xilinx_tcf/Digilent/$hwcode]
+	current_hw_target [get_hw_targets $hwtarget]
+	set_property PARAM.FREQUENCY $jtagfreq [get_hw_targets $hwtarget]
 	open_hw_target
     }
     ::pyvivado::send_bitstream_to_fpga $proj_dir $hwcode $fake
@@ -203,11 +203,11 @@ proc ::pyvivado::monitor_redis_inner {hwcode fake} {
 }
 
 # Monitor REDIS for AXI commands to send to the FPGA.
-proc ::pyvivado::monitor_redis {hwcode fake} {
+proc ::pyvivado::monitor_redis {hwcode hwtarget jtagfreq fake} {
     if {$fake == 0} {
 	connect_hw_server -host localhost -port 60001 -url localhost:3121
-	current_hw_target [get_hw_targets */xilinx_tcf/Digilent/$hwcode]
-	set_property PARAM.FREQUENCY 15000000 [get_hw_targets */xilinx_tcf/Digilent/$hwcode]
+	current_hw_target [get_hw_targets $hwtarget]
+	set_property PARAM.FREQUENCY $jtagfreq [get_hw_targets $hwtarget]
 	open_hw_target
 	current_hw_device [lindex [get_hw_devices] 0]
 	refresh_hw_device [lindex [get_hw_devices] 0]
@@ -220,8 +220,10 @@ proc ::pyvivado::send_bitstream_to_fpga {proj_dir hwcode fake} {
     if {$fake == 0} {
 	if {[file exists "${proj_dir}/TheProject.runs/impl_1/FileTestBench.bit"]} {
 	    set_property PROGRAM.FILE "${proj_dir}/TheProject.runs/impl_1/FileTestBench.bit" [lindex [get_hw_devices] 0]
-	} else {
+	} elseif {[file exists "${proj_dir}/TheProject.runs/impl_1/JtagAxiWrapper.bit"]} {
 	    set_property PROGRAM.FILE "${proj_dir}/TheProject.runs/impl_1/JtagAxiWrapper.bit" [lindex [get_hw_devices] 0]
+	} else {
+	    set_property PROGRAM.FILE "${proj_dir}/TheProject.runs/impl_1/JtagAxiWrapperNoReset.bit" [lindex [get_hw_devices] 0]
 	}
 	set_property PROBES.FILE "${proj_dir}/TheProject.runs/impl_1/debug_nets.ltx" [lindex [get_hw_devices] 0]
 	current_hw_device [lindex [get_hw_devices] 0]

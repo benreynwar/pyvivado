@@ -16,23 +16,25 @@ r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
 def get_hardware_usage():
     usage = {}
-    for hwcode in config.hwcodes:
-        projdir = hwcode_projdir(hwcode)
-        activeA = hwcode_A_active(hwcode)
-        activeB = hwcode_B_active(hwcode)
-        usage[hwcode] = {
-            'projdir': projdir,
-            'active': activeA and activeB,
-            'monitored': activeA,
-        }
+    for board_type in config.hwcodes:
+        for hwcode in config.hwcodes[board_type]:
+            projdir = hwcode_projdir(hwcode)
+            activeA = hwcode_A_active(hwcode)
+            activeB = hwcode_B_active(hwcode)
+            usage[hwcode] = {
+                'projdir': projdir,
+                'active': activeA and activeB,
+                'monitored': activeA,
+            }
     return usage
 
 def summary():
-    for hwcode in config.hwcodes:
-        projdir = hwcode_projdir(hwcode)
-        last_A = hwcode_last_A(hwcode)
-        last_B = hwcode_last_B(hwcode)
-        print('{} {} {} {}'.format(hwcode, last_A, last_B, projdir))
+    for board_type in config.hwcodes:
+        for hwcode in config.hwcodes[board_type]:
+            projdir = hwcode_projdir(hwcode)
+            last_A = hwcode_last_A(hwcode)
+            last_B = hwcode_last_B(hwcode)
+            print('{} {} {} {}'.format(hwcode, last_A, last_B, projdir))
 
 def hwcode_projdir(hwcode):
     projdir = r.get('{}_projdir'.format(hwcode))
@@ -78,26 +80,28 @@ def hwcode_B_active(hwcode):
         active = False
     return active
 
-def get_free_hwcode():
+def get_free_hwcode(board_type):
     free = None
-    for hwcode in config.hwcodes:
+    for hwcode in config.hwcodes[board_type]:
         if (not hwcode_A_active(hwcode)) and (not hwcode_B_active(hwcode)):
             free = hwcode
     return free
 
 def get_unmonitored_projdir_hwcode(projdir):
     projdir_hwcode = None
-    for hwcode in config.hwcodes:
-        if hwcode_projdir(hwcode) == projdir:
-            if (not hwcode_A_active(hwcode)):
-                projdir_hwcode = hwcode
+    for board_type in config.hwcodes:
+        for hwcode in config.hwcodes[board_type]:
+            if hwcode_projdir(hwcode) == projdir:
+                if (not hwcode_A_active(hwcode)):
+                    projdir_hwcode = hwcode
     return projdir_hwcode    
 
 def get_projdir_hwcode(projdir):
     projdir_hwcode = None
-    for hwcode in config.hwcodes:
-        if hwcode_projdir(hwcode) == projdir:
-            if hwcode_A_active(hwcode) and (not hwcode_B_active(hwcode)):
-                projdir_hwcode = hwcode
+    for board_type in config.hwcodes:
+        for hwcode in config.hwcodes[board_type]:
+            if hwcode_projdir(hwcode) == projdir:
+                if hwcode_A_active(hwcode) and (not hwcode_B_active(hwcode)):
+                    projdir_hwcode = hwcode
     return projdir_hwcode
 
