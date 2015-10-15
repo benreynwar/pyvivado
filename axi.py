@@ -322,6 +322,14 @@ class CommCommand(object):
         )
         return [command]
 
+    def set_signeds_commands(self, values, address, constant_address=False):
+        '''
+        Create `AxiCommand`s for writing signed integers.
+        '''
+        offset = pow(2, 32)
+        unsigneds = [v+offset if v < 0 else v for v in values]
+        return self.set_unsigneds_commands(unsigneds, address, constant_address)
+            
     def get_unsigneds_commands(self, address, length=1, constant_address=False):
         '''
         Create `AxiCommand`s for reading unsigned integers.
@@ -339,6 +347,14 @@ class CommCommand(object):
         Create `AxiCommand`s for writing an unsigned integer.
         '''
         return self.set_unsigneds_commands(values=[value], address=address)
+
+    def set_signed_commands(self, value, address, constant_address=False):
+        '''
+        Create `AxiCommand`s for writing signed integers.
+        '''
+        if value < 0:
+            value += pow(2, 32)
+        return self.set_unsigned_commands(value, address)
 
     def trigger_commands(self, address):
         '''
