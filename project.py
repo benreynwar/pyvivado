@@ -8,7 +8,7 @@ import shutil
 
 from pyvivado import config, task, utils, interface, builder, redis_utils
 from pyvivado import connection, sqlite_collection, boards
-from pyvivado.hdl.wrapper import inner_wrapper, file_testbench, jtag_axi_wrapper
+from pyvivado.hdl.wrapper import inner_wrapper, file_testbench, jtag_axi_wrapper, jtag_axi_wrapper_no_reset
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +130,18 @@ class Project(object):
             simulation_files=simulation_files,
             ips=ips,
         ))
+        if board in boards.params:
+            board_params = boards.params[board]
+            board_name = board_params['xilinx_name']
+            part_name = board_params['part']
+            assert(part is None)
+        else:
+            board_name = board
+            part_name = part
+        if board_name is None:
+            board_name = ''
+        if part_name is None:
+            part_name = ''
         # Generate a TCL command to create the project.
         command_template = '''::pyvivado::create_vivado_project {{{directory}}} {{ {design_files} }} {{ {simulation_files} }} {{{part}}} {{{board}}} {{{ips}}} {{{top_module}}}'''
         command = command_template.format(
@@ -138,8 +150,8 @@ class Project(object):
                 '{'+f+'}' for f in design_files]),
             simulation_files=' '.join([
                 '{'+f+'}' for f in simulation_files]),
-            part=part,
-            board=board,
+            part=part_name,
+            board=board_name,
             ips=tcl_ips,
             top_module=top_module,
         )
@@ -541,7 +553,10 @@ class FPGAProject(BuilderProject):
         `BuilderProject.create`.
         '''
         parameters['board_params'] = boards.get_board_params(board)
-        jtagaxi_builder = jtag_axi_wrapper.JtagAxiWrapperBuilder(parameters)
+        if parameters['board_params']['name'] == 'profpga:uno2000':
+            jtagaxi_builder = jtag_axi_wrapper_no_reset.JtagAxiWrapperNoResetBuilder(parameters)
+        else:
+            jtagaxi_builder = jtag_axi_wrapper.JtagAxiWrapperBuilder(parameters)
         return {
             'design_builders': [the_builder, jtagaxi_builder],
             'simulation_builders': [],
@@ -648,10 +663,11 @@ class FPGAProject(BuilderProject):
         hwcode = redis_utils.get_unmonitored_projdir_hwcode(self.directory)
         if hwcode is None:
             raise Exception('No free hardware running this project found.')
+        hwtarget, jtagfreq = config.hwtargets[hwcode]
         description = 'Monitor Redis connection and pass command to FPGA.'
         t = task.VivadoTask.create(
             parent_directory=self.directory,
-            command_text='::pyvivado::monitor_redis {} 0'.format(hwcode),
+            command_text='::pyvivado::monitor_redis {} {} {:0} 0'.format(hwcode, hwtarget, int(jtagfreq)),
             description=description,
             tasks_collection=self.tasks_collection,
         )
@@ -680,16 +696,18 @@ class FPGAProject(BuilderProject):
             fake_int = 0
             description = 'Sending project to fpga and monitoring.'
         # Get the hardware code for an unmonitored FPGA.
-        hwcode = redis_utils.get_free_hwcode()
+        self.params = self.read_params()
+        hwcode = redis_utils.get_free_hwcode(self.params['board_params']['name'])
         if hwcode is None:
             raise Exception('No free hardware found.')
+        hwtarget, jtagfreq = config.hwtargets[hwcode]
         logger.info('Using hardware: {}'.format(hwcode))
         # Spawn a Vivado process to deploy the bitstream and
         # start monitoring.
         t = task.VivadoTask.create(
             parent_directory=self.directory,
-            command_text='::pyvivado::send_to_fpga_and_monitor {{{}}} {} {}'.format(
-                self.directory, hwcode, fake_int),
+            command_text='::pyvivado::send_to_fpga_and_monitor {{{}}} {} {} {} {}'.format(
+                self.directory, hwcode, hwtarget, int(jtagfreq), fake_int),
             description=description,
             tasks_collection=self.tasks_collection,
         )

@@ -11,14 +11,25 @@ testdir = os.path.join(basedir, 'test_outputs')
 
 default_tasks_collection = sqlite_collection.SQLLiteCollection(':memory:')
 
-vivado = r'/opt/Xilinx/Vivado/2014.4/bin/vivado'
+vivado = r'C:\Xilinx\Vivado\2014.3\bin\vivado.bat'
 
-default_part = 'xc7k70tfbg676-1'
-default_board = ''
+default_board = 'xilinx:vc709'
 
-hwcodes = [
-]
-# Real hardware codes look something like '210203826421A'
+# hwcode and hwtargets are examples.
+# Make them match your hardware.
+hwcodes = {
+    'xilinx:vc709': (
+        '210203826421A',
+    ),
+    'profpga:uno2000': (
+        '0000137658c701',
+    ),
+}
+
+hwtargets = {
+    '210203826421A': ('*/xilinx_tcf/Digilent/210203826421A', 15e6),
+    '0000137658c701': ('*/xilinx_tcf/Xilinx/0000137658c701', 6e6),
+}
 
 def setup_logging(level):
     '''
