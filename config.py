@@ -56,6 +56,8 @@ def setup_logging(level):
 # Any output messages from Vivado containing one of these strings will be ignored.
 # Delete from or add to this as you wish.
 default_ignore_strings = (
+    # Annoying warning from 2015.1
+    'Default location for XILINX_VIVADO_HLS not found',
     # Ignore warnings about invalid parts
     'as part xc7k325tffg900-2 specified in board_part file is either',
     'as part xc7z045ffg900-2 specified in board_part file is either',

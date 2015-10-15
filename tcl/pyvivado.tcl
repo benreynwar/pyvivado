@@ -20,6 +20,7 @@ proc ::pyvivado::create_vivado_project {project_dir design_files simulation_file
         create_project TheProject $project_dir
     }
     set_property target_language "vhdl" [current_project]
+    set_property verilog_define GIT_HASH=AAAA [current_fileset]
     if {$board != ""} {
         set_property board_part $board [current_project]
     }
