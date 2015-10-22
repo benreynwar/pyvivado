@@ -103,6 +103,7 @@ proc ::pyvivado::implement_without_bitstream {} {
     set implemented [::pyvivado::is_implemented]
     if {$implemented == 0} {
         ::pyvivado::synthesize {}
+	set_property STEPS.PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
         launch_runs impl_1
         wait_on_run impl_1
     }
