@@ -11,9 +11,9 @@ testdir = os.path.join(basedir, 'test_outputs')
 
 default_tasks_collection = sqlite_collection.SQLLiteCollection(':memory:')
 
-vivado = r'C:\Xilinx\Vivado\2014.3\bin\vivado.bat'
+vivado = r'/opt/Xilinx/Vivado/2015.1/bin/vivado'
 
-default_board = 'xilinx:vc709'
+default_board = 'dummy'
 
 # hwcode and hwtargets are examples.
 # Make them match your hardware.

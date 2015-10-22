@@ -85,7 +85,7 @@ class Project(object):
     @classmethod
     def create(cls, directory, design_files, simulation_files,
                tasks_collection=None,
-               part='', board='', ips=[],
+               part=None, board='', ips=[],
                top_module=''):
         '''
         Create a new Vivado project.
@@ -423,7 +423,7 @@ class BuilderProject(Project):
             
     @classmethod
     def create(cls, design_builders, simulation_builders, parameters, directory,
-               tasks_collection=None, part='', board='', top_module=''):
+               tasks_collection=None, part=None, board='', top_module=''):
         '''
         Create a new Vivado project from `Builder`'s specifying the top level
         modules.  Spawns a Viavdo process to create the project and returns a 
@@ -728,7 +728,7 @@ class FileTestBenchProject(BuilderProject):
 
     @classmethod
     def make_parent_params(cls, interface, directory, tasks_collection=None,
-                           part='', board=''):
+                           part=None, board=''):
         '''
         Takes an `Interface` object for the module we are testing and
         generates the parameters required by `BuilderProject.create`.
@@ -753,7 +753,7 @@ class FileTestBenchProject(BuilderProject):
             
     @classmethod
     def create_or_update(cls, interface, directory, tasks_collection=None,
-                         part='', board=''):
+                         part=None, board=''):
         '''
         Create a new FileTestBenchProject if one does not already exist in the 
         directory.  If one does exist and the dependencies have been modified

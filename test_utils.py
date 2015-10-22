@@ -28,7 +28,6 @@ def check_output(output_data, expected_data):
 
 def simulate(interface, directory, data,
              board=config.default_board,
-             part=config.default_part,
              sim_type='hdl',
              clock_period=default_clock_period,
              extra_clock_periods=default_extra_clock_periods,
@@ -43,7 +42,6 @@ def simulate(interface, directory, data,
     p = project.FileTestBenchProject.create_or_update(
         interface=interface, directory=directory,
         board=board,
-        part=part,
     )
     t = p.wait_for_most_recent_task()
     errors = t.get_errors_and_warnings()

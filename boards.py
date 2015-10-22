@@ -3,6 +3,14 @@ import os
 from pyvivado import config
 
 params = {
+    'dummy': {
+        'clock_frequency': 100,
+        'clock_type': 'Differential_clock_captable_pin',
+        'xdc_filename': os.path.join(config.basedir, 'xdc', 'VC709.xdc'),
+        'part': 'xc7k70tfbg676-1',
+        'xilinx_name': None,
+        'name': 'dummy',
+    },
     'xilinx:vc709': {
         'clock_frequency': 200,
         'clock_type': 'Differential_clock_capable_pin',
