@@ -62,10 +62,7 @@ def simulate(interface, directory, data,
 
         return output_data[1:]
     else:
-        external_dir = os.path.join(directory, 'external')
-        external.make_directory(interface, external_dir)
-        interface.write_input_file(
-            data, os.path.join(external_dir, 'input.data'))
+        external.make_directory(interface, directory, data)
         return []
 
 
