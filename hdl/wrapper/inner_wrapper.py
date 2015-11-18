@@ -19,11 +19,11 @@ class InnerWrapperBuilder(builder.Builder):
                 'name': wire_name,
                 'from_slv': wire_type.conversion_from_slv(
                     'idw_slv_' + wire_name),
-                #'sv_from_slv': wire_type.sv_conversion_from_slv(
-                #    'idw_slv_' + wire_name),
+                'sv_from_slv': wire_type.sv_conversion_from_slv(
+                    'idw_slv_' + wire_name),
                 'width': wire_type.width,
                 'typ': wire_type.typ(),
-                #'sv_typ': wire_type.sv_typ('idw_'+wire_name), 
+                'sv_typ': wire_type.sv_typ('idw_'+wire_name), 
                 'direction': 'in',
             }
             signals_in.append(signal)
@@ -33,11 +33,11 @@ class InnerWrapperBuilder(builder.Builder):
                 'name': wire_name,
                 'to_slv': wire_type.conversion_to_slv(
                     'idw_' + wire_name),
-                #'sv_to_slv': wire_type.sv_conversion_to_slv(
-                #    'idw_' + wire_name),
+                'sv_to_slv': wire_type.sv_conversion_to_slv(
+                    'idw_' + wire_name),
                 'width': wire_type.width, 
                 'typ': wire_type.typ(),
-                #'sv_typ': wire_type.sv_typ('idw_'+wire_name),
+                'sv_typ': wire_type.sv_typ('idw_'+wire_name),
                 'direction': 'out',
             }
             signals_out.append(signal)
@@ -63,7 +63,7 @@ class InnerWrapperBuilder(builder.Builder):
     def get_filename(self, directory):
         if self.language == 'vhdl':
             fn = os.path.join(directory, 'inner_wrapper.vhd')
-        elif self.language == 'systemverilog':
+        elif self.language in ('systemverilog', 'verilog'):
             fn = os.path.join(directory, 'inner_wrapper.sv')
         else:
             raise ValueError('Unknown language: {}'.format(self.language))
@@ -72,7 +72,7 @@ class InnerWrapperBuilder(builder.Builder):
     def build(self, directory):
         if self.language == 'vhdl':
             template_fn = os.path.join(config.hdldir, 'wrapper', 'inner_wrapper.vhd.t')
-        elif self.language == 'systemverilog':
+        elif self.language in ('systemverilog', 'verilog'):
             template_fn = os.path.join(config.hdldir, 'wrapper', 'inner_wrapper.sv.t')
         else:
             raise ValueError('Unknown language: {}'.format(self.language))            

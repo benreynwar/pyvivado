@@ -108,7 +108,7 @@ class SignalType(object):
         into a logic array.
 
         '''
-        return self.conversion_to_slv(v)
+        return v
 
     def conversion_from_slv(self, v):
         '''
@@ -492,21 +492,23 @@ class Array(SignalType):
         if self.named_type:
             typ = self.name
         else:
-            typ = '{contained_name} {wire_name} [{size}-1: 0]'.format(
+            typ = '{contained_name} [{size}-1: 0] {wire_name}'.format(
                 size=self.size,
                 contained_name=self.contained_type.sv_name,
                 wire_name=wire_name)
         return typ
 
     def sv_conversion_from_slv(self, v):
-        if self.named_type:
-            conv = self.conversion_from_slv(v)
-        elif ((not self.contained_type.named_type) and
-              (isinstance(self.contained_type, StdLogicVector))):
-            conv = 'pyvivado_utils::Logic2DHelper#({width}, {size})::from_logic({v})'.format(
-                size=self.size, width=self.contained_type.width, v=v)
-        else:
-            raise ValueError('This type not supported by pyvivado for SystemVerilog yet.')
+        # if self.named_type:
+        #     conv = self.conversion_from_slv(v)
+        # elif ((not self.contained_type.named_type) and
+        #       (isinstance(self.contained_type, StdLogicVector))):
+        #     conv = 'pyvivado_utils::Logic2DHelper#({width}, {size})::from_logic({v})'.format(
+        #         size=self.size, width=self.contained_type.width, v=v)
+        # else:
+        #     conv = v
+        #     #raise ValueError('This type not supported by pyvivado for SystemVerilog yet.')
+        conv = v
         return conv
 
     def defs_and_imps(self):
