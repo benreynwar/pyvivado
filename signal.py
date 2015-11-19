@@ -490,7 +490,7 @@ class Array(SignalType):
 
     def sv_typ(self, wire_name):
         if self.named_type:
-            typ = self.name
+            typ = '{} {}'.format(self.name, wire_name)
         else:
             typ = '{contained_name} [{size}-1: 0] {wire_name}'.format(
                 size=self.size,
