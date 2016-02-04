@@ -123,7 +123,7 @@ class SignalType(object):
         Returns a string SystemVerilog function converting a logic array into
         this type.
         '''        
-        return self.conversion_from_slv(v)
+        return v #self.conversion_from_slv(v)
 
     def to_bitstring(self, v):
         '''
@@ -176,7 +176,7 @@ class StdLogic(SignalType):
             output = 1
         elif value == '0':
             output = 0
-        elif value in ('X', 'U'):
+        elif value in ('X', 'U', 'Z'):
             output = None
         else:
             raise ValueError('StdLogic has unknown value {}'.format(value))
@@ -452,7 +452,34 @@ class Record(SignalType):
             d[name] = value
             running_width += width
         return d
-            
+
+class Enum(SignalType):
+    '''
+    The signal type for a VHDL enum.
+    '''
+    def __init__(self, possible_values, name):
+        super().__init__(name=name)
+        self.possible_values = possible_values
+        self.width = logceil(len(possible_values))
+        uint_signal = Unsigned(width=self.width)
+        self.value_to_bitstring = dict(
+            [(v, uint_signal.to_bitstring(i))
+             for i, v in enumerate(possible_values)])
+        self.value_to_bitstring[None] = 'X' * self.width 
+        self.bitstring_to_value = {}
+        for i in range(0, pow(2, self.width)):
+            bs = uint_signal.to_bitstring(i)
+            if i < len(possible_values):
+                self.bitstring_to_value[bs] = possible_values[i]
+            else:
+                self.bitstring_to_value[bs] = None
+                
+    def to_bitstring(self, v):
+        return self.value_to_bitstring[v]
+
+    def from_bitstring(self, bs):
+        return self.bitstring_to_value[bs]
+
 
 class Array(SignalType):
     '''
