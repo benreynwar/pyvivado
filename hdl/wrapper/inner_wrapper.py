@@ -63,7 +63,7 @@ class InnerWrapperBuilder(builder.Builder):
     def get_filename(self, directory):
         if self.language == 'vhdl':
             fn = os.path.join(directory, 'inner_wrapper.vhd')
-        elif self.language == 'systemverilog':
+        elif self.language in ('systemverilog', 'verilog'):
             fn = os.path.join(directory, 'inner_wrapper.sv')
         else:
             raise ValueError('Unknown language: {}'.format(self.language))
@@ -72,7 +72,7 @@ class InnerWrapperBuilder(builder.Builder):
     def build(self, directory):
         if self.language == 'vhdl':
             template_fn = os.path.join(config.hdldir, 'wrapper', 'inner_wrapper.vhd.t')
-        elif self.language == 'systemverilog':
+        elif self.language in ('systemverilog', 'verilog'):
             template_fn = os.path.join(config.hdldir, 'wrapper', 'inner_wrapper.sv.t')
         else:
             raise ValueError('Unknown language: {}'.format(self.language))            
