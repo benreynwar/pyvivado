@@ -473,6 +473,9 @@ class Enum(SignalType):
                 self.bitstring_to_value[bs] = possible_values[i]
             else:
                 self.bitstring_to_value[bs] = None
+
+    def to_unsigned(self, v):
+        return self.possible_values.index(v)
                 
     def to_bitstring(self, v):
         return self.value_to_bitstring[v]
