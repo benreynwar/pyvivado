@@ -474,10 +474,16 @@ class Enum(SignalType):
             else:
                 self.bitstring_to_value[bs] = None
 
+    def check_value(self, v):
+        if v not in self.possible_values:
+            raise ValueError('{} is a valid Enum value.  Possible values are {}'.format(v, self.possible_values))
+
     def to_unsigned(self, v):
+        self.check_value(v)
         return self.possible_values.index(v)
                 
     def to_bitstring(self, v):
+        self.check_value(v)
         return self.value_to_bitstring[v]
 
     def from_bitstring(self, bs):

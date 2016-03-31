@@ -11,14 +11,15 @@ logger = logging.getLogger(__name__)
 default_clock_period = 10
 default_extra_clock_periods = 20
 
+
 class TestCase(unittest.TestCase):
-    
+
     def simulate(self, *args, **kwargs):
         return simulate(*args, **kwargs)
 
     def check_output(self, *args, **kwargs):
         return check_output(*args, **kwargs)
-    
+
 
 def check_output(output_data, expected_data):
     assert(len(output_data) >= len(expected_data))
@@ -52,7 +53,8 @@ def simulate(interface, directory, data,
         assert(len(errors) == 0)
 
         # Run the simulation.
-        runtime = '{} ns'.format((len(data) + extra_clock_periods) * clock_period)
+        runtime = '{} ns'.format((len(data) + extra_clock_periods) *
+                                 clock_period)
         errors, output_data = p.run_simulation(
             input_data=data, runtime=runtime, sim_type=sim_type,
         )
@@ -72,4 +74,59 @@ def run_test(test_class, test_name='default_test', logging_level=logging.DEBUG):
     runner = unittest.TextTestRunner()
     runner.run(suite)
 
-    
+
+def split_data_for_tests(
+        input_data, output_data, split_tag='STARTING_NEW_TEST'):
+    test_data = []
+    this_test_data = None
+    for ipt, opt in zip(input_data, output_data):
+        if ipt[split_tag]:
+            if this_test_data is not None:
+                test_data.append(this_test_data)
+            this_test_data = [[], []]
+        if this_test_data is not None:
+            this_test_data[0].append(ipt)
+            this_test_data[1].append(opt)
+    if this_test_data is not None:
+        test_data.append(this_test_data)
+    return test_data
+
+
+def simulate_and_test(
+        interface, directory, reset_input, tests,
+        wait_lines=20,
+        board=config.default_board,
+        sim_type='hdl',
+        clock_period=default_clock_period,
+        extra_clock_periods=default_extra_clock_periods,
+        external_test=False,
+        pause=False,
+        force_refresh=False):
+    '''
+    Run a single vivado simulation which contains many independent tests
+    that are run one after another in a single simulation.
+    '''
+    wait_data = [reset_input] * wait_lines
+    input_data = []
+    for test in tests:
+        new_data = test.make_input_data()
+        input_data += new_data
+
+    output_data = simulate(
+        external_test=external_test,
+        interface=interface, directory=directory,
+        data=wait_data + input_data,
+        sim_type=sim_type,
+    )[wait_lines:]
+
+    test_data = split_data_for_tests(input_data, output_data)
+
+    if pause:
+        import pdb
+        pdb.set_trace()
+
+    # Run test checks
+    assert(len(test_data) == len(tests))
+    for test, data in zip(tests, test_data):
+        test.check_output_data(
+            input_data=data[0], output_data=data[1])
