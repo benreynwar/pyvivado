@@ -439,7 +439,11 @@ class Record(SignalType):
                     set(d.keys()), contained_names))
         bitstrings = []
         for name, typ in self.contained_types:
-            bitstrings.append(typ.to_bitstring(d[name]))
+            try:
+                bitstrings.append(typ.to_bitstring(d[name]))
+            except ValueError:
+                logger.error('Failed for contained type {}'.format(name))
+                raise
         return ''.join(bitstrings)
 
     def from_bitstring(self, bitstring):
@@ -487,7 +491,7 @@ class Enum(SignalType):
         return self.value_to_bitstring[v]
 
     def from_bitstring(self, bs):
-        return self.bitstring_to_value[bs]
+        return self.bitstring_to_value.get(bs, None)
 
 
 class Array(SignalType):
