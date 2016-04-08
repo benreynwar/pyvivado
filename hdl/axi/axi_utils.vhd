@@ -48,7 +48,8 @@ package axi_utils is
     wready => '1'
     );
 
-  constant MAX_N_SLAVE_IDS: natural := 11;
+  -- FIXME: Very bad that this is hard coded in here.
+  constant MAX_N_SLAVE_IDS: natural := 12;
   subtype slave_id is integer range 0 to 65535;
   type array_of_slave_id is array(MAX_N_SLAVE_IDS-1 downto 0) of slave_id;
   type array_of_axi4lite_m2s is array(integer range <>) of axi4lite_m2s;
