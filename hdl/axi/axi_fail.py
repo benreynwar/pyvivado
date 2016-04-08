@@ -26,11 +26,15 @@ class AxiFail(object):
         self.o = axi.make_empty_axi4lite_s2m_dict()
         self.o['bresp'] = axi.DECERR
         self.o['rresp'] = axi.DECERR
-
-    def process(self, inputs):
+        
+    def predict(self):
         outputs = {
             'o': self.o,
         }
+        return outputs
+
+    def process(self, inputs):
+        outputs = self.predict()
         self.o = axi.make_empty_axi4lite_s2m_dict()
         self.o['bresp'] = axi.DECERR
         self.o['rresp'] = axi.DECERR

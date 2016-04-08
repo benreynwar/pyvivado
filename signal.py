@@ -108,7 +108,7 @@ class SignalType(object):
         into a logic array.
 
         '''
-        return self.conversion_to_slv(v)
+        return v
 
     def conversion_from_slv(self, v):
         '''
@@ -123,7 +123,7 @@ class SignalType(object):
         Returns a string SystemVerilog function converting a logic array into
         this type.
         '''        
-        return self.conversion_from_slv(v)
+        return v #self.conversion_from_slv(v)
 
     def to_bitstring(self, v):
         '''
@@ -176,7 +176,7 @@ class StdLogic(SignalType):
             output = 1
         elif value == '0':
             output = 0
-        elif value in ('X', 'U'):
+        elif value in ('X', 'U', 'Z'):
             output = None
         else:
             raise ValueError('StdLogic has unknown value {}'.format(value))
@@ -439,7 +439,11 @@ class Record(SignalType):
                     set(d.keys()), contained_names))
         bitstrings = []
         for name, typ in self.contained_types:
-            bitstrings.append(typ.to_bitstring(d[name]))
+            try:
+                bitstrings.append(typ.to_bitstring(d[name]))
+            except ValueError:
+                logger.error('Failed for contained type {}'.format(name))
+                raise
         return ''.join(bitstrings)
 
     def from_bitstring(self, bitstring):
@@ -452,7 +456,43 @@ class Record(SignalType):
             d[name] = value
             running_width += width
         return d
-            
+
+class Enum(SignalType):
+    '''
+    The signal type for a VHDL enum.
+    '''
+    def __init__(self, possible_values, name):
+        super().__init__(name=name)
+        self.possible_values = possible_values
+        self.width = logceil(len(possible_values))
+        uint_signal = Unsigned(width=self.width)
+        self.value_to_bitstring = dict(
+            [(v, uint_signal.to_bitstring(i))
+             for i, v in enumerate(possible_values)])
+        self.value_to_bitstring[None] = 'X' * self.width 
+        self.bitstring_to_value = {}
+        for i in range(0, pow(2, self.width)):
+            bs = uint_signal.to_bitstring(i)
+            if i < len(possible_values):
+                self.bitstring_to_value[bs] = possible_values[i]
+            else:
+                self.bitstring_to_value[bs] = None
+
+    def check_value(self, v):
+        if v not in self.possible_values:
+            raise ValueError('{} is a valid Enum value.  Possible values are {}'.format(v, self.possible_values))
+
+    def to_unsigned(self, v):
+        self.check_value(v)
+        return self.possible_values.index(v)
+                
+    def to_bitstring(self, v):
+        self.check_value(v)
+        return self.value_to_bitstring[v]
+
+    def from_bitstring(self, bs):
+        return self.bitstring_to_value.get(bs, None)
+
 
 class Array(SignalType):
     '''
@@ -490,23 +530,25 @@ class Array(SignalType):
 
     def sv_typ(self, wire_name):
         if self.named_type:
-            typ = self.name
+            typ = '{} {}'.format(self.name, wire_name)
         else:
-            typ = '{contained_name} {wire_name} [{size}-1: 0]'.format(
+            typ = '{contained_name} [{size}-1: 0] {wire_name}'.format(
                 size=self.size,
                 contained_name=self.contained_type.sv_name,
                 wire_name=wire_name)
         return typ
 
     def sv_conversion_from_slv(self, v):
-        if self.named_type:
-            conv = self.conversion_from_slv(v)
-        elif ((not self.contained_type.named_type) and
-              (isinstance(self.contained_type, StdLogicVector))):
-            conv = 'pyvivado_utils::Logic2DHelper#({width}, {size})::from_logic({v})'.format(
-                size=self.size, width=self.contained_type.width, v=v)
-        else:
-            raise ValueError('This type not supported by pyvivado for SystemVerilog yet.')
+        # if self.named_type:
+        #     conv = self.conversion_from_slv(v)
+        # elif ((not self.contained_type.named_type) and
+        #       (isinstance(self.contained_type, StdLogicVector))):
+        #     conv = 'pyvivado_utils::Logic2DHelper#({width}, {size})::from_logic({v})'.format(
+        #         size=self.size, width=self.contained_type.width, v=v)
+        # else:
+        #     conv = v
+        #     #raise ValueError('This type not supported by pyvivado for SystemVerilog yet.')
+        conv = v
         return conv
 
     def defs_and_imps(self):

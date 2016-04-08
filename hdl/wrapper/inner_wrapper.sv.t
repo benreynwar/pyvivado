@@ -1,6 +1,8 @@
 // -*- verilog -*- 
 
-import pyvivado_utils::*;
+{% for package in packages %}
+import {{package}}::*;
+{% endfor %}
 
 module InsideDutWrapper
   ({% for signal in signals_in %}
@@ -25,7 +27,7 @@ module InsideDutWrapper
   {{dut_name}} {% if dut_parameters %}
       #({% for name, value in dut_parameters.items() %}
       .{{name}}({{value}}) {% if not loop.last %},{% endif %}{% endfor %}
-      ) dut{% endif %}
+      ){% endif %} dut
     ( {% for clock_name in clock_names %}
       .{{clock_name}}(clk),{% endfor %}{% for signal in signals_in + signals_out + port_signals%}
       .{{signal.name}}(idw_{{signal.name}}){% if not loop.last %},{% endif %} {% endfor %}

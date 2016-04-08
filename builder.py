@@ -126,7 +126,7 @@ class Builder(object):
         '''
         return self.packages
 
-    def build(self, directory, false_directory=None):
+    def build(self, directory, false_directory=None, top_params={}):
         '''
         Complex builders override this method to generate the required
         files.
@@ -218,12 +218,14 @@ def build_all(directory, top_builders=[], top_package=None, top_params={},
                                 top_params=top_params)
     for builder in builders:
         argspec = inspect.getargspec(builder.build)
-        # Don't force all builders to take 'false_directory' when almost
-        # none need it.
+        # Don't force all builders to take 'false_directory' or
+        # 'top_params' when almost none need it.
+        kwargs = {'directory': directory}
         if 'false_directory' in argspec.args:
-            builder.build(directory=directory, false_directory=false_directory)
-        else:
-            builder.build(directory=directory)
+            kwargs['false_directory'] = false_directory
+        if 'top_params' in argspec.args:
+            kwargs['top_params'] = top_params
+        builder.build(**kwargs)
     requirements = get_requirements(builders, directory)
     return requirements
 
