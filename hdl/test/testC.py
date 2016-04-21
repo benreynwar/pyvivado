@@ -6,37 +6,37 @@ from pyvivado import interface, signal, config, builder
 
 logger = logging.getLogger(__name__)
 
+
 def get_data_type(data_width):
     return signal.StdLogicVector(width=data_width, name='t_data')
 
 
 class TestCBuilder(builder.Builder):
-    
+
     def __init__(self, params):
         super().__init__(params)
         self.width = params['width']
         self.module_name = 'TestC'
-        
+
     def built_filename(self, directory):
         return os.path.join(directory, 'TestC.v')
-        
+
     def required_filenames(self, directory):
         return [self.built_filename(directory)]
-        
+
     def build(self, directory):
         cwd = os.getcwd()
         os.chdir(config.basedir)
-        command = ['sbt', 'run TestC {} --dataWidth {}'.format(directory, self.width)]
+        command = ['sbt', 'run TestC {} --dataWidth {}'.format(
+            directory, self.width)]
         subprocess.call(command)
         os.chdir(cwd)
 
-        
+
 def get_testC_interface(params):
     module_name = 'TestC'
     width = params['width']
     builder = TestCBuilder({'width': width})
-    module_parameters = {
-    }
     wires_in = (
         ('io_i_valid', signal.std_logic_type),
         ('io_i_data', signal.StdLogicVector(width=width)),
