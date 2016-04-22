@@ -277,6 +277,7 @@ class VivadoTask(Task):
         messages = self.get_messages()
         for mt, message in messages:
             self.MESSAGE_MAPPING[mt](message)
+        for mt, message in messages:
             if mt in failure_message_types:
                 raise Exception('Task Error: {}'.format(message))
 
