@@ -12,8 +12,8 @@ object Generator {
       val outputDirectory = args(1)
       val tutArgs = args.slice(2, args.length) 
       moduleName match {
-	case "TestC" => testC(tutArgs, outputDirectory)
-	case _ => throw ParseException("Unknown module.")
+        case "TestC" => testC(tutArgs, outputDirectory)
+        case _ => throw ParseException("Unknown module.")
       }
     }
   }
@@ -26,7 +26,7 @@ object Generator {
       val arg = args(i)
       arg match {
         case "--dataWidth" => dataWidth = args(i+1).toInt; i+=1; dataWidthSet = true
-	case _ => throw ParseException(s"Unrecognized parameter: $arg.")
+        case _ => throw ParseException(s"Unrecognized parameter: $arg.")
       }
       i += 1
     }
@@ -34,10 +34,7 @@ object Generator {
       throw ParseException("dataWidth must be specified.")
     } else {
       val testArgs = Array("--backend", "v", "--targetDir", outputDirectory)
-      chiselMainTest(testArgs, () => Module(
-	new TestC(dataWidth=dataWidth))){
-  	  c => new TestCTests(c, dataWidth=dataWidth)
-	}
+      chiselMain(testArgs, () => Module(new TestC(dataWidth=dataWidth)))
     }
   }
 }

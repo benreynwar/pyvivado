@@ -5,6 +5,7 @@ Python tools for creating and parsing AXI communications.
 import asyncio
 import random
 import logging
+import time
 
 from pyvivado import signal
 
@@ -115,6 +116,8 @@ class ConnCommandHandler(object):
         and processes the responses.
         '''
         for command in commands:
+            if isinstance(command, FakeWaitCommand):
+                time.sleep(command.sleep_time)
             rs = []
             for ac in command.axi_commands:
                 assert(ac.readorwrite in (WRITE_TYPE, READ_TYPE))
@@ -417,12 +420,15 @@ class FakeWaitCommand(CommCommand):
     This is used when we're sending commands to a simulation.
     The `DictCommandHandler` translates it into a bunch of empty
     master-to-slave dictionaries.
+    It can be also used when communicating with an FPGA to indicate
+    a sleep time.  This is for compatibility of tests.
     '''
-    
-    def __init__(self, clock_cycles):
+
+    def __init__(self, clock_cycles, sleep_time=0):
         super().__init__()
         self.clock_cycles = clock_cycles
         self.axi_commands = []
+        self.sleep_time = sleep_time
 
 
 class GetBooleanCommand(CommCommand):
@@ -504,8 +510,9 @@ class Comm(object):
     that create `CommCommand`s to send to a communications handler.
     '''
 
-    def fake_wait(self, clock_cycles):
-        command = FakeWaitCommand(clock_cycles=clock_cycles)
+    def fake_wait(self, clock_cycles, sleep_time=0):
+        command = FakeWaitCommand(
+            clock_cycles=clock_cycles, sleep_time=sleep_time)
         self.handler.send([command])
         return command.future
     

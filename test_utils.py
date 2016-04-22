@@ -4,7 +4,7 @@ import testfixtures
 import logging
 import shutil
 
-from pyvivado import project, config, external
+from pyvivado import project, config, external, axi
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +92,30 @@ def split_data_for_tests(
     return test_data
 
 
+def deploy_and_test(
+        interface, directory, tests, board=config.default_board,
+        part='', force_refresh=False):
+    '''
+    Deploy design to an FPGA and run tests on it there.
+    The DUT must have an AXI4-LITE interface.
+    '''
+    p = project.FPGAProject.create_or_update(
+        the_builder=interface.builder,
+        parameters=interface.parameters,
+        directory=directory,
+        board=board,
+        part=part,
+        force_refresh=force_refresh,
+    )
+    p.wait_for_most_recent_task()
+    t_implement = p.implement()
+    t_implement.wait()
+    t_monitor, conn = p.send_to_fpga_and_monitor()
+    for test in tests:
+        test.send_to_fpga(conn)
+        test.check_futures()
+
+
 def simulate_and_test(
         interface, directory, reset_input, tests,
         wait_lines=20,
@@ -127,6 +151,45 @@ def simulate_and_test(
 
     # Run test checks
     assert(len(test_data) == len(tests))
+    start_index = 0
     for test, data in zip(tests, test_data):
+        logger.debug('Running test for data start at index {}'.format(
+            start_index))
+        start_index += len(data[0])
         test.check_output_data(
             input_data=data[0], output_data=data[1])
+
+
+def run_and_test(
+        interface, directory, reset_input, tests,
+        wait_lines=20,
+        board=config.default_board,
+        sim_type='hdl',
+        clock_period=default_clock_period,
+        extra_clock_periods=default_extra_clock_periods,
+        external_test=False,
+        pause=False,
+        force_refresh=False):
+    if sim_type == 'fpga':
+        deploy_and_test(
+            interface=interface,
+            directory=os.path.join(directory, 'fpga'),
+            tests=tests,
+            board=board,
+            part='',
+            force_refresh=False)
+    else:
+        simulate_and_test(
+            interface=interface,
+            directory=directory,
+            reset_input=reset_input,
+            tests=tests,
+            wait_lines=wait_lines,
+            board=board,
+            sim_type=sim_type,
+            clock_period=clock_period,
+            extra_clock_periods=extra_clock_periods,
+            external_test=external_test,
+            pause=pause,
+            force_refresh=force_refresh,
+            )
