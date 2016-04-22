@@ -119,6 +119,8 @@ class VivadoTask(Task):
         # to log an error message.
         'Failure': logger.error,
     }
+    DEFAULT_FAILURE_MESSAGE_TYPES = (
+        'WARNING', 'CRITICAL_WARNING', 'ERROR', 'FATAL_ERROR', 'Failure')
 
     @classmethod
     def create(cls, parent_directory, command_text, tasks_collection,
@@ -262,7 +264,8 @@ class VivadoTask(Task):
     def is_finished(self):
         return os.path.exists(os.path.join(self.directory, 'finished.txt'))
 
-    def wait(self, sleep_time=1):
+    def wait(self, sleep_time=1,
+             failure_message_types=DEFAULT_FAILURE_MESSAGE_TYPES):
         '''
         Block python until this task has finished.
         '''
@@ -271,6 +274,11 @@ class VivadoTask(Task):
             time.sleep(sleep_time)
             finished = self.is_finished()
             logger.debug("Waiting for task to finish.")
+        messages = self.get_messages()
+        for mt, message in messages:
+            self.MESSAGE_MAPPING[mt](message)
+            if mt in failure_message_types:
+                raise Exception('Task Error: {}'.format(message))
 
     def run_and_wait(self, sleep_time=1):
         '''
@@ -282,7 +290,6 @@ class VivadoTask(Task):
         '''
         self.run()
         self.wait(sleep_time=sleep_time)
-        self.log_messages(self.get_messages())
 
     def monitor_output(self):
         '''
