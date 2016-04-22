@@ -120,7 +120,7 @@ class VivadoTask(Task):
         'Failure': logger.error,
     }
     DEFAULT_FAILURE_MESSAGE_TYPES = (
-        'WARNING', 'CRITICAL_WARNING', 'ERROR', 'FATAL_ERROR', 'Failure')
+        'CRITICAL_WARNING', 'ERROR', 'FATAL_ERROR', 'Failure')
 
     @classmethod
     def create(cls, parent_directory, command_text, tasks_collection,

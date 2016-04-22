@@ -94,18 +94,21 @@ def split_data_for_tests(
 
 def deploy_and_test(
         interface, directory, tests, board=config.default_board,
-        part='', force_refresh=False):
+        part=None, force_refresh=False):
     '''
     Deploy design to an FPGA and run tests on it there.
     The DUT must have an AXI4-LITE interface.
     '''
+    if force_refresh and os.path.exists(directory):
+        shutil.rmtree(directory)
+    if not os.path.exists(directory):
+        os.mkdir(directory)
     p = project.FPGAProject.create_or_update(
         the_builder=interface.builder,
         parameters=interface.parameters,
         directory=directory,
         board=board,
         part=part,
-        force_refresh=force_refresh,
     )
     p.wait_for_most_recent_task()
     t_implement = p.implement()
@@ -173,10 +176,9 @@ def run_and_test(
     if sim_type == 'fpga':
         deploy_and_test(
             interface=interface,
-            directory=os.path.join(directory, 'fpga'),
+            directory=directory + '_fpga',
             tests=tests,
             board=board,
-            part='',
             force_refresh=False)
     else:
         simulate_and_test(
