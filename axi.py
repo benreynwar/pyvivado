@@ -199,6 +199,7 @@ class DictCommandHandler(object):
             results = []
             first_e = None
             for ac in command.axi_commands:
+                error_help = ' Command description: {}'.format(ac.description)
                 bad_response = False
                 rs = []
                 e = None
@@ -206,7 +207,7 @@ class DictCommandHandler(object):
                     r = None
                     while r is None:
                         if len(ds) == 0:
-                            raise Exception('DictCommandHandler is out of sync.  Probably a bug in the AXI communication.')
+                            raise Exception('DictCommandHandler is out of sync.  Probably a bug in the AXI communication.' + error_help)
                         d = ds.pop(0)
                         r = None
                         if ac.readorwrite == READ_TYPE:
@@ -220,13 +221,13 @@ class DictCommandHandler(object):
                     rs.append(r)
                 if ac.readorwrite == WRITE_TYPE:
                     if len(rs) != ac.length:
-                        e = Exception('Incorrect number of response.')
+                        e = Exception('Incorrect number of response.' + error_help)
                     elif bad_response:
-                        e = Exception('Revceived a bad response.')
+                        e = Exception('Received a bad response.' + error_help)
                     result = None
                 else:
                     if bad_response:
-                        e = Exception('Revceived a bad response.')
+                        e = Exception('Received a bad response.' + error_help)
                         result = None
                     else:
                         result = [r[1] for r in rs]
@@ -242,7 +243,7 @@ class AxiCommand(object):
     '''
 
     def __init__(self, start_address, length, readorwrite, data=None,
-                 constant_address=False):
+                 constant_address=False, description=None):
         '''
         `start_address`: The address on which the first AXI command operates.
         `constant_address`: If this is `True` we keep operating on the same
@@ -250,12 +251,14 @@ class AxiCommand(object):
         `length`: The number of commands.
         `readorwrite`: Can be either `READ_TYPE` or `WRITE_TYPE`.
         'data': A list of integers to send (if it is a write command).
+        `description`: An optional description for debugging purposes.
         '''
         max_address = pow(2, 32-1)
         self.start_address = start_address
         self.length = length
         self.readorwrite = readorwrite
         self.constant_address = constant_address
+        self.description = description
         assert(readorwrite in (READ_TYPE, WRITE_TYPE))
         self.data = data
         if readorwrite == READ_TYPE:
@@ -310,7 +313,8 @@ class CommCommand(object):
             else:
                 self.future.set_result(processed_result)
 
-    def set_unsigneds_commands(self, values, address, constant_address=False):
+    def set_unsigneds_commands(
+            self, values, address, description=None, constant_address=False):
         '''
         Create `AxiCommand`s for writing unsigned integers.
         '''
@@ -322,18 +326,22 @@ class CommCommand(object):
             readorwrite=WRITE_TYPE,
             data=values,
             constant_address=constant_address,
+            description=description,
         )
         return [command]
 
-    def set_signeds_commands(self, values, address, constant_address=False):
+    def set_signeds_commands(
+            self, values, address, constant_address=False, description=None):
         '''
         Create `AxiCommand`s for writing signed integers.
         '''
         offset = pow(2, 32)
         unsigneds = [v+offset if v < 0 else v for v in values]
-        return self.set_unsigneds_commands(unsigneds, address, constant_address)
-            
-    def get_unsigneds_commands(self, address, length=1, constant_address=False):
+        return self.set_unsigneds_commands(
+            unsigneds, address, constant_address, description=description)
+
+    def get_unsigneds_commands(
+            self, address, length=1, constant_address=False, description=None):
         '''
         Create `AxiCommand`s for reading unsigned integers.
         '''
@@ -342,44 +350,50 @@ class CommCommand(object):
             length=length,
             readorwrite=READ_TYPE,
             constant_address=constant_address,
+            description=description,
         )
         return [command]
 
-    def set_unsigned_commands(self, value, address):
+    def set_unsigned_commands(self, value, address, description=None):
         '''
         Create `AxiCommand`s for writing an unsigned integer.
         '''
-        return self.set_unsigneds_commands(values=[value], address=address)
+        return self.set_unsigneds_commands(
+            values=[value], address=address, description=description)
 
-    def set_signed_commands(self, value, address, constant_address=False):
+    def set_signed_commands(
+            self, value, address, constant_address=False, description=None):
         '''
         Create `AxiCommand`s for writing signed integers.
         '''
         if value < 0:
             value += pow(2, 32)
-        return self.set_unsigned_commands(value, address)
+        return self.set_unsigned_commands(
+            value, address, description=description)
 
-    def trigger_commands(self, address):
+    def trigger_commands(self, address, description=None):
         '''
         Create `AxiCommand`s for writing a 0 to an address.  This
         is used as a trigger sometimes.
         '''
-        return self.set_unsigned_commands(0, address)
+        return self.set_unsigned_commands(0, address, description=description)
 
-    def get_unsigned_commands(self, address):
+    def get_unsigned_commands(self, address, description=None):
         '''
         Create `AxiCommand`s for reading an unsigned integer.
         '''
-        return self.get_unsigneds_commands(address, length=1)
+        return self.get_unsigneds_commands(
+            address, length=1, description=description)
 
-    def get_boolean_commands(self, address):
+    def get_boolean_commands(self, address, description=None):
         '''
         Create `AxiCommand`s for reading a boolean.
         '''
         command = AxiCommand(
             start_address=address,
             length=1,
-            readorwrite=READ_TYPE)
+            readorwrite=READ_TYPE,
+            description=description)
         return [command]
 
     def process_get_boolean(self, result):
@@ -394,10 +408,10 @@ class CommCommand(object):
             r = False
         else:
             r = None
-            e = Exception('Unknown return value.')
+            e = Exception('Unknown return value. Command Description: {}'.format(self.description))
         return e, r
 
-    def set_boolean_commands(self, value, address):
+    def set_boolean_commands(self, value, address, description=None):
         '''
         Create `AxiCommand`s for writing a boolean.
         '''
@@ -411,6 +425,7 @@ class CommCommand(object):
             length=1,
             readorwrite=WRITE_TYPE,
             data=data,
+            description=description,
         )
         return [command]
 
