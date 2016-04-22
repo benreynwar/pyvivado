@@ -158,3 +158,38 @@ def simulate_and_test(
         start_index += len(data[0])
         test.check_output_data(
             input_data=data[0], output_data=data[1])
+
+
+def run_and_test(
+        interface, directory, reset_input, tests,
+        wait_lines=20,
+        board=config.default_board,
+        sim_type='hdl',
+        clock_period=default_clock_period,
+        extra_clock_periods=default_extra_clock_periods,
+        external_test=False,
+        pause=False,
+        force_refresh=False):
+    if sim_type == 'fpga':
+        deploy_and_test(
+            interface=interface,
+            directory=os.path.join(directory, 'fpga'),
+            tests=tests,
+            board=board,
+            part='',
+            force_refresh=False)
+    else:
+        simulate_and_test(
+            interface=interface,
+            directory=directory,
+            reset_input=reset_input,
+            tests=tests,
+            wait_lines=wait_lines,
+            board=board,
+            sim_type=sim_type,
+            clock_period=clock_period,
+            extra_clock_periods=extra_clock_periods,
+            external_test=external_test,
+            pause=pause,
+            force_refresh=force_refresh,
+            )
