@@ -276,7 +276,7 @@ class CommCommand(object):
     parse the response.
     '''
 
-    def __init__(self):
+    def __init__(self, description=None):
         # The futures attibute is populated with the result when
         # it is processed.
         # See asynio for details on futures.  But basically
@@ -290,6 +290,7 @@ class CommCommand(object):
         # obviously can't process the responses until after the 
         # simulation is finished.
         self.future = asyncio.Future()
+        self.description = description
 
     def process_result(self, result):
         '''
@@ -408,7 +409,7 @@ class CommCommand(object):
             r = False
         else:
             r = None
-            e = Exception('Unknown return value. Command Description: {}'.format(self.description))
+            e = Exception('Unknown return value ({}). Command Description: {}'.format(result, self.description))
         return e, r
 
     def set_boolean_commands(self, value, address, description=None):
@@ -439,8 +440,8 @@ class FakeWaitCommand(CommCommand):
     a sleep time.  This is for compatibility of tests.
     '''
 
-    def __init__(self, clock_cycles, sleep_time=0):
-        super().__init__()
+    def __init__(self, clock_cycles, sleep_time=0, description=None):
+        super().__init__(description=description)
         self.clock_cycles = clock_cycles
         self.axi_commands = []
         self.sleep_time = sleep_time
@@ -448,46 +449,52 @@ class FakeWaitCommand(CommCommand):
 
 class GetBooleanCommand(CommCommand):
 
-    def __init__(self, address):
-        super().__init__()
-        self.axi_commands = self.get_boolean_commands(address=address)
-        
+    def __init__(self, address, description=None):
+        super().__init__(description=description)
+        self.axi_commands = self.get_boolean_commands(
+            address=address, description=description)
+
     def process_result(self, result):
         return self.process_get_boolean(result[0][0])
 
 class SetBooleanCommand(CommCommand):
 
-    def __init__(self, value, address):
-        super().__init__()
-        self.axi_commands = self.set_boolean_commands(value=value, address=address)
+    def __init__(self, value, address, description=None):
+        super().__init__(description=description)
+        self.axi_commands = self.set_boolean_commands(
+            value=value, address=address, description=description)
 
 class GetUnsignedCommand(CommCommand):
 
-    def __init__(self, address):
-        super().__init__()
-        self.axi_commands = self.get_unsigned_commands(address=address)
+    def __init__(self, address, description=None):
+        super().__init__(description=description)
+        self.axi_commands = self.get_unsigned_commands(
+            address=address, description=description)
 
     def process_result(self, result):
         return None, result[0][0]
     
 class SetUnsignedCommand(CommCommand):
 
-    def __init__(self, value, address):
-        super().__init__()
-        self.axi_commands = self.set_unsigned_commands(value=value, address=address)
+    def __init__(self, value, address, description=None):
+        super().__init__(description=description)
+        self.axi_commands = self.set_unsigned_commands(
+            value=value, address=address, description=description)
 
 class SetUnsignedsCommand(CommCommand):
 
-    def __init__(self, values, address, constant_address=False):
-        super().__init__()
+    def __init__(self, values, address, constant_address=False, description=None):
+        super().__init__(description=description)
         self.axi_commands = self.set_unsigneds_commands(
-            values=values, address=address, constant_address=constant_address)
+            values=values, address=address, constant_address=constant_address,
+            description=description)
 
 class TriggerCommand(CommCommand):
     
-    def __init__(self, address):
-        super().__init__()
-        self.axi_commands = self.trigger_commands(address)
+    def __init__(self, address, description=None):
+        super().__init__(description=description)
+        self.axi_commands = self.trigger_commands(
+            address, description=description)
 
 
 class CombinedCommands(CommCommand):
@@ -498,8 +505,8 @@ class CombinedCommands(CommCommand):
     `CommCommand` objects.
     '''
 
-    def __init__(self, commands):
-        super().__init__()
+    def __init__(self, commands, description=None):
+        super().__init__(description=description)
         self.subcommands = commands
         self.axi_commands = []
         for sc in self.subcommands:
@@ -530,35 +537,39 @@ class Comm(object):
             clock_cycles=clock_cycles, sleep_time=sleep_time)
         self.handler.send([command])
         return command.future
-    
-    def get_boolean(self, address):
-        command = GetBooleanCommand(address=address)
-        self.handler.send([command])
-        return command.future
-        
-    def set_boolean(self, value, address):
-        command = SetBooleanCommand(value=value, address=address)
+
+    def get_boolean(self, address, description=None):
+        command = GetBooleanCommand(address=address, description=description)
         self.handler.send([command])
         return command.future
 
-    def get_unsigned(self, address):
-        command = GetUnsignedCommand(address=address)
+    def set_boolean(self, value, address, description=None):
+        command = SetBooleanCommand(
+            value=value, address=address, description=description)
+        self.handler.send([command])
+        return command.future
+
+    def get_unsigned(self, address, description=None):
+        command = GetUnsignedCommand(address=address, description=description)
         self.handler.send([command])
         return command.future 
 
-    def set_unsigned(self, value, address):
-        command = SetUnsignedCommand(value=value, address=address)
+    def set_unsigned(self, value, address, description=None):
+        command = SetUnsignedCommand(value=value, address=address,
+                                     description=description)
         self.handler.send([command])
         return command.future 
 
-    def set_unsigneds(self, values, address, constant_address=False):
+    def set_unsigneds(
+            self, values, address, constant_address=False, description=None):
         command = SetUnsignedsCommand(
-            values=values, address=address, constant_address=constant_address)
+            values=values, address=address, constant_address=constant_address,
+            description=description)
         self.handler.send([command])
         return command.future 
 
-    def trigger(self, address):
-        command = TriggerCommand(address=address)
+    def trigger(self, address, description=None):
+        command = TriggerCommand(address=address, description=description)
         self.handler.send([command])
         return command.future
        
