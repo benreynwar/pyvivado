@@ -1,15 +1,10 @@
 import os
 import logging
-import asyncio
-
-from pyvivado import sqlite_collection
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 tcldir = os.path.join(basedir, 'tcl')
 hdldir = os.path.join(basedir, 'hdl')
 testdir = os.path.join(basedir, 'test_outputs')
-
-default_tasks_collection = sqlite_collection.SQLLiteCollection(':memory:')
 
 vivado = r'/opt/Xilinx/Vivado/2015.1/bin/vivado'
 
