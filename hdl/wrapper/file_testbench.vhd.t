@@ -4,13 +4,15 @@ library ieee;
 use ieee.std_logic_1164.all;
 
 entity FileTestBench is
+  generic (
+    DATAINFILENAME: string;
+    DATAOUTFILENAME: string
+  );
 end FileTestBench;
  
 architecture arch of FileTestBench is
   constant WIDTHIN: natural := {{total_width_in}};
   constant WIDTHOUT: natural := {{total_width_out}};
-  constant DATAINFILENAME: string := "{{input_filename}}";
-  constant DATAOUTFILENAME: string := "{{output_filename}}";
   constant CLOCK_PERIOD: time := {{clock_period}};
   constant MAX_CYCLES: natural := {{max_cycles}};
   signal in_data: std_logic_vector(WIDTHIN-1 downto 0);

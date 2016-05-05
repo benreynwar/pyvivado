@@ -1,10 +1,11 @@
 import os
 import logging
 
-from pyvivado import interface, signal, config, builder, utils
+from pyvivado import config, builder, utils
 from pyvivado.hdl.wrapper import outer_wrapper
 
 logger = logging.getLogger(__name__)
+
 
 class FileTestbenchBuilder(builder.Builder):
 
@@ -25,7 +26,7 @@ class FileTestbenchBuilder(builder.Builder):
     def get_filename(self, directory):
         return os.path.join(directory, 'file_testbench.vhd')
 
-    def build(self, directory, false_directory=None):
+    def build(self, directory):
         '''
         Produce the necessary files.
         `directory` is where the files will be placed.
@@ -33,8 +34,6 @@ class FileTestbenchBuilder(builder.Builder):
         `false_directory` is necessary so we can compare the contents of files
         that have been placed in different directories when getting hashs.
         '''
-        if false_directory is None:
-            false_directory = directory
         template_fn = os.path.join(config.hdldir, 'wrapper', 'file_testbench.vhd.t')
         output_fn = self.get_filename(directory)
         # Don't set a limit on running time
@@ -42,8 +41,6 @@ class FileTestbenchBuilder(builder.Builder):
         template_params = {
             'total_width_in': self.interface.total_width_in(),
             'total_width_out': self.interface.total_width_out(),
-            'input_filename': os.path.join(false_directory, 'input.data'),
-            'output_filename': os.path.join(false_directory, 'output.data'),
             'clock_period': '10 ns',
             'max_cycles': time_limit,
             'dut_parameters': self.interface.module_parameters,

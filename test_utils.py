@@ -4,7 +4,8 @@ import testfixtures
 import logging
 import shutil
 
-from pyvivado import project, config, external, axi
+from pyvivado import filetestbench_project, fpga_project, vivado_project
+from pyvivado import config, external
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +28,9 @@ def check_output(output_data, expected_data):
     testfixtures.compare(output_data, expected_data)
 
 
-def simulate(interface, directory, data,
+def simulate(interface, directory, data, test_name,
              board=config.default_board,
-             sim_type='hdl',
+             sim_type='vivado_hdl',
              clock_period=default_clock_period,
              extra_clock_periods=default_extra_clock_periods,
              external_test=False,
@@ -42,25 +43,34 @@ def simulate(interface, directory, data,
 
     if not external_test:
         # Make the project.
-        p = project.FileTestBenchProject.create_or_update(
+        logger.info('Making a FileTestBench Project')
+        p = filetestbench_project.FileTestBenchProject(
             interface=interface, directory=directory,
-            board=board,
         )
-        t = p.wait_for_most_recent_task()
-        errors = t.get_errors_and_warnings()
-        for error in errors:
-            logger.error(error)
-        assert(len(errors) == 0)
+        if sim_type.startswith('vivado'):
+            vivado_sim_type = sim_type[len('vivado_'):]
+            logger.info('Making a Vivado Project')
+            v = vivado_project.VivadoProject(p)
+            if v.new:
+                logger.info('Waiting for task')
+                t = v.tasks_collection.wait_for_most_recent_task()
+                logger.info('Logging errors')
+                errors = t.get_errors()
+                for error in errors:
+                    logger.error(error)
+                assert(len(errors) == 0)
 
-        # Run the simulation.
-        runtime = '{} ns'.format((len(data) + extra_clock_periods) *
-                                 clock_period)
-        errors, output_data = p.run_simulation(
-            input_data=data, runtime=runtime, sim_type=sim_type,
-        )
-        for error in errors:
-            logger.error(error)
-        assert(len(errors) == 0)
+            # Run the simulation.
+            runtime = '{} ns'.format((len(data) + extra_clock_periods) *
+                                     clock_period)
+            p.update_input_data(input_data=data, test_name=test_name)
+            errors, output_data = v.run_simulation(
+                test_name=test_name, runtime=runtime, sim_type=vivado_sim_type)
+            for error in errors:
+                logger.error(error)
+            assert(len(errors) == 0)
+        else:
+            raise ValueError('Unknown sim_type: {}'.format(sim_type))
 
         return output_data[1:]
     else:
@@ -103,7 +113,7 @@ def deploy_and_test(
         shutil.rmtree(directory)
     if not os.path.exists(directory):
         os.mkdir(directory)
-    p = project.FPGAProject.create_or_update(
+    p = fpga_project.FPGAProject.create_or_update(
         the_builder=interface.builder,
         parameters=interface.parameters,
         directory=directory,
