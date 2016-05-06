@@ -1,6 +1,9 @@
 import collections
 import logging
 import inspect
+import os
+import subprocess
+
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +135,14 @@ class Builder(object):
         files.
         '''
         pass
+
+
+def run_sbt_command(sbtdir, command):
+    cwd = os.getcwd()
+    os.chdir(sbtdir)
+    command = ['sbt', command]
+    subprocess.call(command)
+    os.chdir(cwd)
 
 
 def params_from_xco(xco_filename):

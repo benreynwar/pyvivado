@@ -1,5 +1,6 @@
 import os
 import logging
+import shutil
 
 from pyvivado import boards, tasks_collection, hash_helper
 from pyvivado import params_helper, vivado_task
@@ -14,7 +15,7 @@ class VivadoProject(object):
     Also does some management of Vivado processes (`Task`s) that are run.
     '''
 
-    def __init__(self, project, part=None, board=None):
+    def __init__(self, project, part=None, board=None, overwrite_ok=False):
         '''
         Create a new Vivado project.
 
@@ -45,26 +46,33 @@ class VivadoProject(object):
             'part': part,
             'board': board,
             }
+        refresh = False
         if old_params is not None:
-            assert(old_params == new_params)
+            if not old_params == new_params:
+                if not overwrite_ok:
+                    raise Exception('Part or Board have changed. {} -> {}'.format(old_params, new_params))
+                else:
+                    refresh = True
         else:
             if not self.new:
-                import pdb
-                pdb.set_trace()
-            assert(self.new)
+                raise Exception('No Part of Board parameters found for existing vivado project.')
         self.part = part
         self.board = board
         self.hash_helper = hash_helper.HashHelper(self.directory, self.project.get_hash)
+        if (not self.new) and self.hash_helper.is_changed():
+            if not overwrite_ok:
+                raise Exception('Hash has changed in project but overwrite is not allowed.')
+            else:
+                refresh = True
+        if refresh:
+            shutil.rmtree(self.directory)
         self.tasks_collection = tasks_collection.TasksCollection(
             self.directory, task_type=vivado_task.VivadoTask)
-        if self.new:
+        if self.new or refresh:
             os.mkdir(self.directory)
             self.params_helper.write(new_params)
             self.hash_helper.write()
             self.launch_create_task()
-        else:
-            if self.hash_helper.is_changed():
-                raise Exception('Hash has changed.')
 
     @classmethod
     def directory_from_project(cls, project):

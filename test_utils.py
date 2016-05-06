@@ -46,11 +46,12 @@ def simulate(interface, directory, data, test_name,
         logger.info('Making a FileTestBench Project')
         p = filetestbench_project.FileTestBenchProject(
             interface=interface, directory=directory,
+            overwrite_ok=True,
         )
         if sim_type.startswith('vivado'):
             vivado_sim_type = sim_type[len('vivado_'):]
             logger.info('Making a Vivado Project')
-            v = vivado_project.VivadoProject(p)
+            v = vivado_project.VivadoProject(p, overwrite_ok=True)
             if v.new:
                 logger.info('Waiting for task')
                 t = v.tasks_collection.wait_for_most_recent_task()

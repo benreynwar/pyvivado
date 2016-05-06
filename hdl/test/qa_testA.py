@@ -31,7 +31,7 @@ for data_width in (1, 2, 7):
 @pytest.mark.parametrize('data_width, array_length, sim_type', combinations)
 def test_testA(data_width, array_length, sim_type, pause=False,
                external_test=False):
-    directory = os.path.abspath('proj_test_testA_{}_{}'.format(
+    directory = os.path.join(config.testdir, 'test', 'proj_testA_{}_{}'.format(
           data_width, array_length))
     params = {
         'data_width': data_width,
@@ -71,8 +71,11 @@ def test_testA(data_width, array_length, sim_type, pause=False,
         test_name=test_name,
         interface=interface, directory=directory,
         data=wait_data+input_data,
-        #sim_type='post_synthesis',
+        sim_type=sim_type,
     )[wait_lines:]
+    if pause:
+        import pdb
+        pdb.set_trace()
     assert(len(output_data) >= len(expected_data))
     output_data = output_data[:len(expected_data)]
     testfixtures.compare(output_data, expected_data)

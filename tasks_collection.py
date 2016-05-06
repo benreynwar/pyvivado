@@ -29,6 +29,9 @@ class TasksCollection(object):
         tasks = [self.task_type(self.id_to_directory(_id)) for _id in ids]
         return tasks
 
+    def count(self):
+        return len(self.get_ids())
+
     def unfinished_tasks(self):
         '''
         Gets a list of all tasks on this project that have not finished.

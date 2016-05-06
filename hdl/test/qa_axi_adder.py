@@ -1,17 +1,13 @@
 import os
 import unittest
-import shutil
 import logging
 import random
-import math
-import time
 
-import testfixtures
-
-from pyvivado import project, axi, config, connection
+from pyvivado import project, axi, config, connection, test_utils
 from pyvivado.hdl.test import axi_adder
 
 logger = logging.getLogger(__name__)
+
 
 class TestAxiAdder(unittest.TestCase):
 
@@ -35,8 +31,10 @@ class TestAxiAdder(unittest.TestCase):
 
     def test_with_hdl_simulation(self):
         random.seed(0)
+        sim_type = 'vivado_hdl'
 
-        directory = os.path.abspath('proj_testaxiadder')
+        directory = os.path.join(config.testdir, 'proj_axi_adder')
+        test_name = 'test_simulation'
         interface = axi_adder.get_axi_adder_interface({})
 
         # Create input data for the sending of a reset signal.
@@ -58,14 +56,15 @@ class TestAxiAdder(unittest.TestCase):
                 'reset': 0,
                 'i': d,
             })
-        
+
         # Create the project and run the simulation
-        p = project.FileTestBenchProject.create_or_update(
+        # Create project
+        output_data = test_utils.simulate(
+            test_name=test_name,
             interface=interface, directory=directory,
-            board=config.default_board,
-            part=config.default_part,
-        )
-        errors, output_data = p.run_simulation(input_data=wait_data+input_data)
+            data=wait_data+input_data,
+            sim_type=sim_type,
+        )[wait_lines:]
         # Process the output axi connection.
         response_dicts = [d['o'] for d in output_data]
         handler.consume_response_dicts(response_dicts) 
@@ -75,11 +74,11 @@ class TestAxiAdder(unittest.TestCase):
         output_intCs = [f.result() for f in future_intCs]
         self.assertEqual(output_intCs, expected_intCs)
 
-    @unittest.skipIf(connection.get_free_hwcode() is None,
+    @unittest.skipIf(connection.get_free_hwcode(config.default_board) is None,
                      "No available hardware")
     def test_on_fpga(self):
         random.seed(1)
-        directory = os.path.abspath('proj_testaxiadderfpga')
+        directory = os.path.join('test', 'proj_testaxiadderfpga')
         the_builder = axi_adder.AxiAdderBuilder({})
         connection.kill_free_monitors(directory)
         # Create the project, synthesize, implement and deploy to the FPGA.
@@ -116,6 +115,5 @@ class TestAxiAdder(unittest.TestCase):
         self.assertEqual(output_intCs, expected_intCs)
 
 if __name__ == '__main__':
-    config.setup_logging(logging.WARNING)
+    config.setup_logging(logging.DEBUG)
     unittest.main()
-

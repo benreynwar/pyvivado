@@ -1,4 +1,3 @@
-import unittest
 import os
 import logging
 import random
@@ -7,15 +6,15 @@ import testfixtures
 import pytest
 
 from pyvivado import config, test_utils, test_info
-from pyvivado.hdl.test import simple_module
+from pyvivado.hdl.test import testB
 
 logger = logging.getLogger(__name__)
 
 
-class TestSimpleModule(test_utils.TestCase):
+class TestTestB(test_utils.TestCase):
 
     def default_test(self):
-        test_simple_module(
+        test_testB(
             data_width=4,
             sim_type='vivado_hdl',
             pause=False,
@@ -27,20 +26,13 @@ for data_width in (1, 2, 7):
         combinations.append((data_width, sim_type))
 
 @pytest.mark.parametrize('data_width, sim_type', combinations)
-def test_simple_module(data_width, sim_type, pause=False):
-    '''
-    Tests that the inputs are passing straight through SimpleModule
-    as expected.
-    '''
-    test_name = 'test_simple_module'
-    data_width = 4
-    directory = os.path.join('test', 'proj_testsimplemodule')
+def test_testB(data_width, sim_type, pause=False):
+    test_name = 'test_testB'
+    directory = os.path.join(config.testdir, 'test', 'proj_testB_{}'.format(
+        data_width))
     params = {
         'data_width': data_width,
     }
-    # Create project
-    interface = simple_module.get_simple_module_interface(params)
-
     wait_lines = 20
     wait_data = []
     for wait_index in range(wait_lines):
@@ -65,7 +57,8 @@ def test_simple_module(data_width, sim_type, pause=False):
         input_data.append(input_d)
         expected_data.append(expected_d)
 
-    # Run the simulation and check that the output is correct.
+    # Create project
+    interface = testB.get_testB_interface(params)
     output_data = test_utils.simulate(
         test_name=test_name,
         interface=interface, directory=directory,
@@ -79,7 +72,6 @@ def test_simple_module(data_width, sim_type, pause=False):
     output_data = output_data[:len(expected_data)]
     testfixtures.compare(output_data, expected_data)
 
-
 if __name__ == '__main__':
-    config.setup_logging(logging.WARNING)
-    test_utils.run_test(TestSimpleModule)
+    config.setup_logging(logging.DEBUG)
+    test_utils.run_test(TestTestB)

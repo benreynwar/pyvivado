@@ -1,6 +1,5 @@
 import os
 import logging
-import subprocess
 
 from pyvivado import interface, signal, config, builder
 
@@ -25,12 +24,9 @@ class TestCBuilder(builder.Builder):
         return [self.built_filename(directory)]
 
     def build(self, directory):
-        cwd = os.getcwd()
-        os.chdir(config.basedir)
-        command = ['sbt', 'run TestC {} --dataWidth {}'.format(
-            directory, self.width)]
-        subprocess.call(command)
-        os.chdir(cwd)
+        command = 'run TestC {} --dataWidth {}'.format(
+            directory, self.width)
+        builder.run_sbt_command(config.basedir, command)
 
 
 def get_testC_interface(params):

@@ -39,7 +39,7 @@ def get_hash(files_and_ip):
 
 def get_hash_from_builders(
         directory, design_builders, simulation_builders, parameters,
-        top_module):
+        top_module, temp_directory=None):
     '''
     Get the project hash for the project that these builders would create.
 
@@ -47,7 +47,8 @@ def get_hash_from_builders(
     don't overwrite things unnecessarily.  Always use dummy directory since
     hash may depend on the directory.
     '''
-    temp_directory = os.path.join(directory, 'hash_check')
+    if temp_directory is None:
+        temp_directory = os.path.join(directory, 'hash_check')
     # Make a new directory for temporary files.
     if os.path.exists(temp_directory):
         shutil.rmtree(temp_directory)
@@ -102,11 +103,16 @@ class BaseProject(object):
             self.files_and_ip = files_and_ip
             old_files_and_ip = self.file_helper.read()
             if old_files_and_ip is not None:
-                assert(self.files_and_ip == files_and_ip)
+                if self.files_and_ip == files_and_ip:
+                    if not overwrite_ok:
+                        raise Exception('Project has changed. Cannot overwrite.')
+                    else:
+                        self.file_helper.write(self.files_and_ip, overwrite_ok=True)
             else:
                 self.file_helper.write(self.files_and_ip)
         if self.hash_helper.is_changed():
-            raise Exception('Project has changed.  Cannot overwrite.')
+            if not overwrite_ok:
+                raise Exception('Project has changed.  Cannot overwrite.')
         if self.files_and_ip is None:
             raise Exception('No Files and IP specified')
         self.hash_helper.write()

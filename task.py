@@ -34,7 +34,8 @@ class Task:
         if os.listdir(directory) != []:
             raise Exception('Directory is not empty: {}'.format(directory))
         t = cls(directory)
-        t.set_description('description')
+        if description is not None:
+            t.set_description(description)
         t.set_current_state('NOT_STARTED')
         return t
 

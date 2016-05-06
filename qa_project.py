@@ -4,7 +4,7 @@ import shutil
 import logging
 import time
 
-from pyvivado import config, project, redis_connection
+from pyvivado import config, base_project, vivado_project
 
 from pyvivado.hdl.test import testA
 from pyvivado.hdl.wrapper import inner_wrapper, file_testbench
@@ -30,16 +30,17 @@ class TestProject(unittest.TestCase):
             design_builders = [inner_wrapper_builder, interface.builder]
             simulation_builders = [file_testbench_builder]
             parameters = interface.parameters
-            h = project.BuilderProject.predict_hash(
+            h = base_project.get_hash_from_builders(
                 design_builders=design_builders,
                 simulation_builders=simulation_builders,
                 parameters=parameters,
                 temp_directory=temp_directory,
                 directory=directory,
+                top_module='TestA',
             )
             return h
-        
-        hs = []
+
+        first_hash = None
         for i in range(10):
             h = get_hash(
                 data_width=3,
@@ -48,7 +49,10 @@ class TestProject(unittest.TestCase):
                 temp_directory=os.path.join(
                     config.testdir, 'test_hash_prediction_{}'.format(i)),
             )
-            self.assertEqual(h, b'\x02$\xfb\x94\xd8\xe7\xd9\x10\xee\xe3\x18\x0b\x8e\x18F&a\x84\xe3\xcc')
+            if first_hash is None:
+                first_hash = h
+            else:
+                assert(h == first_hash)
 
     def test_one(self):
         logger.debug('Running TestProject.test_one')
@@ -56,22 +60,21 @@ class TestProject(unittest.TestCase):
         if os.path.exists(dn):
             shutil.rmtree(dn)
         os.makedirs(dn)
-        p = project.Project.create(
+        p = base_project.BaseProject(
             directory=dn,
-            design_files = [os.path.join(config.hdldir, 'test', 'testA.vhd')],
-            simulation_files = [os.path.join(config.hdldir, 'test', 'testA.vhd')],
+            files_and_ip={
+                'design_files': [os.path.join(config.hdldir, 'test', 'testA.vhd')],
+                'simulation_files': [os.path.join(config.hdldir, 'test', 'testA.vhd')],
+                'ips': [],
+                'top_module': 'TestA',
+                }
         )
-        t = p.get_most_recent_task()
-        while not t.is_finished():
-            logger.debug('Waiting for tasks to finish.')
-            time.sleep(1)
+        v = vivado_project.VivadoProject(p)
+        t = v.tasks_collection.get_most_recent_task()
+        t.wait(raise_errors=False)
         errors = t.get_errors()
-        for error in errors:
-            logger.error(error)
         self.assertTrue(len(errors) == 0)
 
 if __name__ == '__main__':
     config.setup_logging(logging.DEBUG)
     unittest.main()
-    
-        

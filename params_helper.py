@@ -24,11 +24,11 @@ class ParamsHelper(object):
                              indent=2, separators=(',', ': '))
         return as_json
 
-    def write(self, params):
+    def write(self, params, overwrite_ok=False):
         '''
         Write the parameters that were used to generate this project.
         '''
-        if os.path.exists(self.fn):
+        if os.path.exists(self.fn) and not overwrite_ok:
             raise Exception('Parameters file already exists.')
         as_json = self.text(params)
         with open(self.fn, 'w') as f:
@@ -48,7 +48,7 @@ class FilesHelper():
                 faips[k] = set(faips[k])
         return faips
 
-    def write(self, faips):
+    def write(self, faips, overwrite_ok=False):
         for k in ('design_files', 'simulation_files', 'ips'):
             faips[k] = list(faips[k])
-        self.params_helper.write(faips)
+        self.params_helper.write(faips, overwrite_ok=overwrite_ok)

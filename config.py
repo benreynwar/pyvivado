@@ -13,6 +13,8 @@ default_board = 'dummy'
 # hwcode and hwtargets are examples.
 # Make them match your hardware.
 hwcodes = {
+    'dummy': (
+    ),
     'xilinx:vc709': (
         '210203826421A',
     ),

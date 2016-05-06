@@ -2,17 +2,20 @@ import os
 import unittest
 import random
 import logging
-import collections
 
 import pytest
 import testfixtures
 
-from pyvivado import project, signal, config, test_utils
+from pyvivado import signal, config, test_utils
 
-from pyvivado.hdl.tree import tree, tree_minimum, tree_maximum
+from pyvivado.hdl.tree import tree
+
+# Required to import modules into registry
+from pyvivado.hdl.tree import tree_maximum, tree_minimum
 
 
 logger = logging.getLogger(__name__)
+
 
 class TestTree(unittest.TestCase):
 
@@ -34,7 +37,8 @@ for tree_name, compare_function in compare_functions:
 def test_tree(tree_name, n_inputs, width):
 
     directory = os.path.join(
-        config.hdldir, 'tree', 'proj_tree_{}_{}_{}'.format(tree_name, n_inputs, width))
+        config.testdir, 'tree', 'proj_tree_{}_{}_{}'.format(tree_name, n_inputs, width))
+    test_name = 'test_tree'
 
     n_data = 100
     data = []
@@ -82,7 +86,8 @@ def test_tree(tree_name, n_inputs, width):
 
     output_data = test_utils.simulate(
         interface=interface, directory=directory,
-        data=wait_data+input_data
+        data=wait_data+input_data,
+        test_name=test_name,
     )[n_wait_lines: n_wait_lines+n_data]
     assert(len(expected_data) == n_data)
     assert(len(expected_indices) == n_data)
@@ -90,6 +95,7 @@ def test_tree(tree_name, n_inputs, width):
     o_address = [d['o_address'] for d in output_data]
     testfixtures.compare(expected_data, o_data)
     testfixtures.compare(expected_indices, o_address)
-        
+
 if __name__ == '__main__':
+    config.setup_logging(logging.DEBUG)
     test_utils.run_test(TestTree)

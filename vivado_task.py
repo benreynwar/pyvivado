@@ -145,7 +145,7 @@ class VivadoTask(task.Task):
                 errors.append(message)
         return errors
 
-    def wait(self, sleep_time=1,
+    def wait(self, sleep_time=1, raise_errors=True,
              failure_message_types=DEFAULT_FAILURE_MESSAGE_TYPES):
         '''
         Block python until this task has finished.
@@ -158,11 +158,12 @@ class VivadoTask(task.Task):
         messages = self.get_messages()
         for mt, message in messages:
             self.MESSAGE_MAPPING[mt](message)
-        for mt, message in messages:
-            if mt in failure_message_types:
-                raise Exception('Task Error: {}'.format(message))
+        if raise_errors:
+            for mt, message in messages:
+                if mt in failure_message_types:
+                    raise Exception('Task Error: {}'.format(message))
 
-    def run_and_wait(self, sleep_time=1):
+    def run_and_wait(self, sleep_time=1, raise_errors=True):
         '''
         Start the task and block python until the task has finished.
         Also log the output from the process.
@@ -171,7 +172,7 @@ class VivadoTask(task.Task):
         process was running instead of waiting until it was finished.
         '''
         self.run()
-        self.wait(sleep_time=sleep_time)
+        self.wait(sleep_time=sleep_time, raise_errors=raise_errors)
 
     def monitor_output(self):
         '''
