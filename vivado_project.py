@@ -34,6 +34,9 @@ class VivadoProject(object):
         self.directory = self.directory_from_project(project)
         self.filename = os.path.join(self.directory, 'TheProject.xpr')
         self.new = not os.path.exists(self.directory)
+        if not self.new:
+            if not os.path.exists(self.filename):
+                raise Exception('Directory exists, but project file does not.')
         params_fn = os.path.join(self.directory, 'params.txt')
         self.params_helper = params_helper.ParamsHelper(params_fn)
         old_params = self.params_helper.read()

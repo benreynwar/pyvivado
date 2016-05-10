@@ -22,6 +22,7 @@ begin
   process
     variable input_line : textio.line;
     variable input_string : string(1 to WIDTH); 
+    variable counter: natural := 0;
   begin
 
     textio.file_open(input_file, FILENAME, read_mode);
@@ -37,7 +38,11 @@ begin
 
     textio.file_close(input_file);
 
-    wait;
+    while counter < 40 loop
+      counter := counter + 1;
+      wait until rising_edge(clk);
+    end loop;  
+    assert false report "end of simulation" severity failure;
   end process;
 
 end arch;

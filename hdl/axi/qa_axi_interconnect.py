@@ -1,6 +1,5 @@
 import os
 import unittest
-import shutil
 import logging
 
 import testfixtures
@@ -17,12 +16,10 @@ class TestAxiInterconnect(unittest.TestCase):
         logger.debug('Starting testone')
         test_name = 'test_axi_interconnect'
         sim_type = 'vivado_hdl'
-        pause = True
+        pause = False
 
-        directory = os.path.join(config.testdir, 'axi', 'proj_qa_axi_interconnect')
-        if os.path.exists(directory):
-            shutil.rmtree(directory)
-        os.mkdir(directory)
+        directory = os.path.join(
+            config.testdir, 'axi', 'proj_qa_axi_interconnect')
 
         slave_ids = (13, 15, pow(2, 16)-7)
         invalid_slave_id = 14

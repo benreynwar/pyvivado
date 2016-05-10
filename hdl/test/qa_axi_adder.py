@@ -33,7 +33,7 @@ class TestAxiAdder(unittest.TestCase):
         random.seed(0)
         sim_type = 'vivado_hdl'
 
-        directory = os.path.join(config.testdir, 'proj_axi_adder')
+        directory = os.path.join(config.testdir, 'test', 'proj_axi_adder')
         test_name = 'test_simulation'
         interface = axi_adder.get_axi_adder_interface({})
 

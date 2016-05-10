@@ -118,8 +118,8 @@ proc ::pyvivado::open_and_implement {proj_dir} {
     ::pyvivado::implement
 }
 
-proc ::pyvivado::create_simset {proj_dir test_name simulation_files} {
-    set simname "sim_${test_name}"
+proc ::pyvivado::create_simset {proj_dir test_name sim_type simulation_files} {
+    set simname "${test_name}_${sim_type}"
     set fileset_exists [llen [get_filesets $simname]]
     if {$fileset_exists == 1} {
         puts "ERROR: Tried to create simulation but directory already existed."
@@ -131,16 +131,16 @@ proc ::pyvivado::create_simset {proj_dir test_name simulation_files} {
         } else {
             puts "DEBUG: no simulation files."
         }
-        set_property generic "DATAINFILENAME=${proj_dir}/${test_name}/input.data DATAOUTFILENAME=${proj_dir}/${test_name}/vivado_hdl_output.data" [get_filesets $simname]
+        set_property generic "DATAINFILENAME=${proj_dir}/${test_name}/input.data DATAOUTFILENAME=${proj_dir}/${test_name}/vivado_${sim_type}_output.data" [get_filesets $simname]
     }
 }
     
 # Run a behavioral HDL simulation.
 proc ::pyvivado::run_hdl_simulation {proj_dir test_name runtime simulation_files} {
-    set simname "sim_${test_name}"
+    set simname "${test_name}_hdl"
     set fileset_exists [llen [get_filesets $simname]]
     if {$fileset_exists == 0} {
-        ::pyvivado::create_simset ${proj_dir}/.. $test_name $simulation_files
+        ::pyvivado::create_simset ${proj_dir}/.. $test_name hdl $simulation_files
     }
     set sim_dir "${proj_dir}/TheProject.sim/${simname}/behav"
     set sim_dir_exists [file isdirectory $sim_dir]
@@ -158,38 +158,52 @@ proc ::pyvivado::run_hdl_simulation {proj_dir test_name runtime simulation_files
 }
 
 # Run a post-synthesis behavioral simulation.
-proc ::pyvivado::run_post_synthesis_simulation {proj_dir runtime} {
+proc ::pyvivado::run_post_synthesis_simulation {proj_dir test_name runtime simulation_files} {
+    set simname "${test_name}_post_synthesis"
+    set fileset_exists [llen [get_filesets $simname]]
+    if {$fileset_exists == 0} {
+        ::pyvivado::create_simset ${proj_dir}/.. $test_name post_synthesis $simulation_files
+    }
+    set sim_dir "${proj_dir}/TheProject.sim/${simname}/synth"
+    set sim_dir_exists [file isdirectory $sim_dir]
     set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY none [get_runs synth_1]
     ::pyvivado::synthesize {}
-    set sim_dir "${proj_dir}/TheProject.sim/sim_1/synth"
+    set sim_dir "${proj_dir}/TheProject.sim/${simname}/synth"
     set sim_dir_exists [file isdirectory $sim_dir]
     if {$sim_dir_exists == 1} {
-	set_property skip_compilation 1 [get_filesets sim_1]
-	puts "DEBUG: Skipping test compilation."
+        set_property skip_compilation 1 [get_filesets ${simname}]
+        puts "DEBUG: Skipping test compilation."
     } else {
-	set_property skip_compilation 0 [get_filesets sim_1]
-	puts "DEBUG: Not skipping test compilation."
+        set_property skip_compilation 0 [get_filesets ${simname}]
+        puts "DEBUG: Not skipping test compilation."
     }
-    set_property xsim.simulate.runtime $runtime [get_filesets sim_1]
+    set_property top FileTestBench [get_filesets $simname]
+    set_property xsim.simulate.runtime $runtime [get_filesets ${simname}]
     puts "DEBUG: About to run_post_synthesis_simulation and pwd is [pwd]"
-    launch_simulation -simset sim_1 -mode post-synthesis -type functional
+    launch_simulation -simset ${simname} -mode post-synthesis -type functional
 }
 
 # Run a post-implementation timing simulation.
-proc ::pyvivado::run_timing_simulation {proj_dir runtime} {
-    ::pyvivado::implement_without_bitstream
-    set sim_dir "${proj_dir}/TheProject.sim/sim_1/impl"
-    set sim_dir_exists [file isdirectory $sim_dir]
-    if {$sim_dir_exists == 1} {
-	set_property skip_compilation 1 [get_filesets sim_1]
-	puts "DEBUG: Skipping test compilation."
-    } else {
-	set_property skip_compilation 0 [get_filesets sim_1]
-	puts "DEBUG: Not skipping test compilation."
+proc ::pyvivado::run_timing_simulation {proj_dir test_name runtime simulation_files} {
+    set simname "${test_name}_timing"
+    set fileset_exists [llen [get_filesets $simname]]
+    if {$fileset_exists == 0} {
+        ::pyvivado::create_simset ${proj_dir}/.. $test_name timing $simulation_files
     }
-    set_property xsim.simulate.runtime $runtime [get_filesets sim_1]
+    set sim_dir "${proj_dir}/TheProject.sim/${simname}/synth"
+    set sim_dir_exists [file isdirectory $sim_dir]
+
+    ::pyvivado::implement_without_bitstream
+    if {$sim_dir_exists == 1} {
+        set_property skip_compilation 1 [get_filesets $simname]
+        puts "DEBUG: Skipping test compilation."
+    } else {
+        set_property skip_compilation 0 [get_filesets $simname]
+        puts "DEBUG: Not skipping test compilation."
+    }
+    set_property xsim.simulate.runtime $runtime [get_filesets $simname]
     puts "DEBUG: About to run_timing_simulation and pwd is [pwd]"
-    launch_simulation -simset sim_1 -mode post-implementation -type timing
+    launch_simulation -simset $simname -mode post-implementation -type timing
 }
 
 # Deploy the bitstream to an FPGA and start monitoring it.

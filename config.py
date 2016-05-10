@@ -3,6 +3,7 @@ import logging
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 tcldir = os.path.join(basedir, 'tcl')
+shdir = os.path.join(basedir, 'sh')
 hdldir = os.path.join(basedir, 'hdl')
 testdir = os.path.join(basedir, 'test_outputs')
 

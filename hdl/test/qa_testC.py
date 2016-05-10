@@ -25,7 +25,7 @@ for width in (1, 2, 7):
     for sim_type in test_info.test_sim_types:
         combinations.append((width, sim_type))
 
-@pytest.mark.parametrize('data_width, sim_type', combinations)
+@pytest.mark.parametrize('width, sim_type', combinations)
 def test_testC(width, sim_type, pause=False):
     test_name = 'test_testC'
     directory = os.path.join('test', 'proj_testC_{}'.format(width))

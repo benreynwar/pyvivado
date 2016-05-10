@@ -1,7 +1,6 @@
 import logging
 import os
 import subprocess
-import time
 import warnings
 
 from pyvivado import task, config
@@ -70,130 +69,19 @@ class VivadoTask(task.Task):
         stdout_fn = 'stdout.txt' 
         stderr_fn = 'stderr.txt' 
         command_fn = 'command.tcl' 
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            DETACHED_PROCESS = 8
-            if os.name == 'nt':
-                commands = [config.vivado, '-log', stdout_fn, '-mode', 'batch',
-                            '-source', command_fn]
-                p = subprocess.Popen(
-                    commands,
-                    # So that process stays alive when terminal is closed
-                    # in Windows.
-                    creationflags=DETACHED_PROCESS,
-                )
-            else:
-                commands = [config.vivado, '-mode', 'batch', '-source',
-                            command_fn]
-                p = subprocess.Popen(
-                    commands,
-                    stdout=open(stdout_fn, 'w'),
-                    stderr=open(stderr_fn, 'w'),
-                )
-
+        DETACHED_PROCESS = 8
+        if os.name == 'nt':
+            commands = [config.vivado, '-log', stdout_fn, '-mode', 'batch',
+                        '-source', command_fn]
+            self.process = subprocess.Popen(
+                commands,
+                # So that process stays alive when terminal is closed
+                # in Windows.
+                creationflags=DETACHED_PROCESS,
+            )
+        else:
+            commands = [config.vivado, '-mode', 'batch', '-source',
+                        command_fn]
+            self.launch_unix_subprocess(
+                commands, stdout_fn=stdout_fn, stderr_fn=stderr_fn)
         os.chdir(cwd)
-
-    def get_messages(self, ignore_strings=config.default_ignore_strings):
-        '''
-        Get any messages that the vivado process wrote to it's output.
-        and work out what type of message they were (e.g. ERROR, INFO...).
-
-        Args:
-            `ignore_strings`: Is a list of strings which when present in
-                Vivado messages we ignore.
-        '''
-        messages = []
-        out_lines = (self.get_stdout(), self.get_stderr())
-        for lines in out_lines:
-            for line in lines:
-                ignore_line = False
-                for ignore_string in ignore_strings:
-                    if ignore_string in line:
-                        ignore_line = True
-                if not ignore_line:
-                    for mt, logger_function in self.MESSAGE_MAPPING.items():
-                        if line.startswith(mt):
-                            messages.append((mt, line[len(mt)+1:-1]))
-        return messages
-
-    def log_messages(self, messages):
-        '''
-        Pass the messages to the python logger.
-        '''
-        for mt, message in messages:
-            self.MESSAGE_MAPPING[mt](message)
-
-    def get_errors(self):
-        '''
-        Get any errors that this Vivado process has logged.
-        '''
-        errors = []
-        messages = self.get_messages()
-        for message_type, message in messages:
-            if message_type in ('FATAL_ERROR', 'ERROR', 'CRITICAL WARNING', 'Failure'):
-                errors.append(message)
-        return errors
-
-    def get_errors_and_warnings(self):
-        '''
-        Get any errors or warning that this Vivado process has logged.
-        '''
-        errors = []
-        messages = self.get_messages()
-        for message_type, message in messages:
-            if message_type in ('FATAL_ERROR', 'ERROR', 'CRITICAL WARNING', 'WARNING', 'Failure'):
-                errors.append(message)
-        return errors
-
-    def wait(self, sleep_time=1, raise_errors=True,
-             failure_message_types=DEFAULT_FAILURE_MESSAGE_TYPES):
-        '''
-        Block python until this task has finished.
-        '''
-        finished = self.is_finished()
-        while not finished:
-            time.sleep(sleep_time)
-            finished = self.is_finished()
-            logger.debug("Waiting for task to finish.")
-        messages = self.get_messages()
-        for mt, message in messages:
-            self.MESSAGE_MAPPING[mt](message)
-        if raise_errors:
-            for mt, message in messages:
-                if mt in failure_message_types:
-                    raise Exception('Task Error: {}'.format(message))
-
-    def run_and_wait(self, sleep_time=1, raise_errors=True):
-        '''
-        Start the task and block python until the task has finished.
-        Also log the output from the process.
-
-        TODO: It would be nicer if this logged the output as the
-        process was running instead of waiting until it was finished.
-        '''
-        self.run()
-        self.wait(sleep_time=sleep_time, raise_errors=raise_errors)
-
-    def monitor_output(self):
-        '''
-        Waits for the task to finish while logging the output.
-
-        FIXME: I'm not using this much but I can't remember why.
-        Should look into it.
-        '''
-        stdout_length = 0
-        stderr_length = 0
-        finished = False
-        while (not finished):
-            finished = self.is_finished()
-            stdout = self.get_stdout()
-            stderr = self.get_stderr()
-            if len(stdout) > stdout_length:
-                for line in stdout[stdout_length:]:
-                    logger.info(line[:-1])
-            if len(stderr) > stderr_length:
-                for line in stderr[stderr_length:]:
-                    logger.error(line[:-1])
-            stdout_length = len(stdout)
-            stderr_length = len(stderr)
-            time.sleep(1)

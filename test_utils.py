@@ -4,7 +4,7 @@ import testfixtures
 import logging
 import shutil
 
-from pyvivado import filetestbench_project, fpga_project, vivado_project
+from pyvivado import filetestbench_project, fpga_project, vivado_project, vcs_project
 from pyvivado import config, external
 
 logger = logging.getLogger(__name__)
@@ -28,9 +28,8 @@ def check_output(output_data, expected_data):
     testfixtures.compare(output_data, expected_data)
 
 
-def simulate(interface, directory, data, test_name,
+def simulate(interface, directory, data, test_name, sim_type,
              board=config.default_board,
-             sim_type='vivado_hdl',
              clock_period=default_clock_period,
              extra_clock_periods=default_extra_clock_periods,
              external_test=False,
@@ -39,7 +38,7 @@ def simulate(interface, directory, data, test_name,
     if force_refresh and os.path.exists(directory):
         shutil.rmtree(directory)
     if not os.path.exists(directory):
-        os.mkdir(directory)
+        os.makedirs(directory)
 
     if not external_test:
         # Make the project.
@@ -48,6 +47,7 @@ def simulate(interface, directory, data, test_name,
             interface=interface, directory=directory,
             overwrite_ok=True,
         )
+        p.update_input_data(input_data=data, test_name=test_name)
         if sim_type.startswith('vivado'):
             vivado_sim_type = sim_type[len('vivado_'):]
             logger.info('Making a Vivado Project')
@@ -64,12 +64,21 @@ def simulate(interface, directory, data, test_name,
             # Run the simulation.
             runtime = '{} ns'.format((len(data) + extra_clock_periods) *
                                      clock_period)
-            p.update_input_data(input_data=data, test_name=test_name)
             errors, output_data = v.run_simulation(
                 test_name=test_name, runtime=runtime, sim_type=vivado_sim_type)
             for error in errors:
                 logger.error(error)
             assert(len(errors) == 0)
+        elif sim_type.startswith('vcs'):
+            vcs_sim_type = sim_type[len('vcs_'):]
+            if vcs_sim_type == 'hdl':
+                v = vcs_project.VCSProject(p)
+                errors, output_data = v.run_hdl_simulation(test_name=test_name)
+                for error in errors:
+                    logger.error(error)
+                assert(len(errors) == 0)
+            else:
+                raise ValueError('Unknown VCS sim type: {}'.format(vcs_sim_type))
         else:
             raise ValueError('Unknown sim_type: {}'.format(sim_type))
 
@@ -131,7 +140,7 @@ def deploy_and_test(
 
 
 def simulate_and_test(
-        interface, directory, reset_input, tests,
+        interface, directory, reset_input, tests, test_name,
         wait_lines=20,
         board=config.default_board,
         sim_type='hdl',
@@ -155,6 +164,7 @@ def simulate_and_test(
         interface=interface, directory=directory,
         data=wait_data + input_data,
         sim_type=sim_type,
+        test_name=test_name,
     )[wait_lines:]
 
     test_data = split_data_for_tests(input_data, output_data)

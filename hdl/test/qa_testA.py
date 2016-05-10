@@ -17,7 +17,7 @@ class TestTestA(test_utils.TestCase):
         test_testA(
             data_width=4,
             array_length=6,
-            sim_type='hdl',
+            sim_type='vivado_post_synthesis',
             external_test=False,
             pause=False,
         )

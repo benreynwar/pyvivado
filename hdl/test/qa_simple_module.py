@@ -34,7 +34,7 @@ def test_simple_module(data_width, sim_type, pause=False):
     '''
     test_name = 'test_simple_module'
     data_width = 4
-    directory = os.path.join('test', 'proj_testsimplemodule')
+    directory = os.path.join(config.testdir, 'test', 'proj_testsimplemodule')
     params = {
         'data_width': data_width,
     }
@@ -81,5 +81,5 @@ def test_simple_module(data_width, sim_type, pause=False):
 
 
 if __name__ == '__main__':
-    config.setup_logging(logging.WARNING)
+    config.setup_logging(logging.DEBUG)
     test_utils.run_test(TestSimpleModule)

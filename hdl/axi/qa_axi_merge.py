@@ -1,5 +1,4 @@
 import os
-import shutil
 import logging
 
 import testfixtures
@@ -31,9 +30,6 @@ def test_axi_merge(n_masters, sim_type, pause=False):
     test_name = 'test_axi_merge'
 
     directory = os.path.join(config.testdir, 'axi', 'proj_axi_merge')
-    if os.path.exists(directory):
-        shutil.rmtree(directory)
-    os.mkdir(directory)
 
     interface = axi_merge.get_axi_merge_interface(
         {'n_masters': n_masters})

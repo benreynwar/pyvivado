@@ -3,7 +3,7 @@ import os
 import shutil
 import logging
 
-from pyvivado import task, config, tasks_collection, vivado_task
+from pyvivado import task, config, tasks_collection, vivado_task, shell_task
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,37 @@ class TestTask(unittest.TestCase):
         t.run_and_wait(raise_errors=False)
         errors = t.get_errors()
         self.assertTrue(len(errors) > 0)
+
+    def test_shell_task(self):
+        logger.debug('Running TestTask.test_shell_task')
+        task_directory = os.path.join(config.testdir, 'testtask')
+        if os.path.exists(task_directory):
+            shutil.rmtree(task_directory)
+        os.makedirs(task_directory)
+
+        def run_task(argument):
+            collection = tasks_collection.TasksCollection(task_directory)
+            description = 'dummy task'
+            command = '{} {} {}'.format(
+                'bash',
+                os.path.join(config.shdir, 'dummy_test.sh'),
+                argument,
+                )
+            t = shell_task.ShellTask.create(
+                collection=collection, description=description,
+                command_text=command)
+            t.run_and_wait(raise_errors=False)
+            return t
+
+        t = run_task('fish')
+        errors = t.get_errors()
+        self.assertTrue(len(errors) == 0)
+        msgs = t.get_messages()
+        self.assertTrue(len(msgs) == 2)
+
+        t2 = run_task('bison')
+        errors = t2.get_errors()
+        self.assertTrue(len(errors) == 1)
 
 
 if __name__ == '__main__':

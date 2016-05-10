@@ -72,6 +72,11 @@ class FileTestBenchProject(BuilderProject):
             self.interface = interface.module_register[self.params['factory_name']](
                 params=self.params)
 
+    def get_input_filename(self, test_name):
+        directory = os.path.join(self.directory, test_name)
+        input_data_fn = os.path.join(directory, 'input.data')
+        return input_data_fn
+
     def update_input_data(self, test_name, input_data):
         '''
         Update the input data and return whether it changed.
@@ -79,7 +84,7 @@ class FileTestBenchProject(BuilderProject):
         directory = os.path.join(self.directory, test_name)
         if not os.path.exists(directory):
             os.mkdir(directory)
-        input_data_fn = os.path.join(directory, 'input.data')
+        input_data_fn = self.get_input_filename(test_name=test_name)
         old_input_data_fn = os.path.join(directory, 'old_input.data')
         if os.path.exists(old_input_data_fn):
             os.remove(old_input_data_fn)

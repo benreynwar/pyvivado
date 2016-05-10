@@ -14,7 +14,6 @@ architecture arch of FileTestBench is
   constant WIDTHIN: natural := {{total_width_in}};
   constant WIDTHOUT: natural := {{total_width_out}};
   constant CLOCK_PERIOD: time := {{clock_period}};
-  constant MAX_CYCLES: natural := {{max_cycles}};
   signal in_data: std_logic_vector(WIDTHIN-1 downto 0);
   signal out_data: std_logic_vector(WIDTHOUT-1 downto 0);
   signal clk: std_logic;
@@ -46,14 +45,4 @@ begin
              in_data => in_data,
              out_data => out_data);
  
-  process(clk)
-    variable counter: natural := 0;
-  begin
-    if rising_edge(clk) then
-      counter := counter + 1;
-    end if;
-    if (MAX_CYCLES > 0) and (counter >= MAX_CYCLES) then
-      assert false report "end of simulation" severity failure;
-    end if;
-  end process;
 end arch;

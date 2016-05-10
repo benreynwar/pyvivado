@@ -16,11 +16,11 @@ class FileTestbenchBuilder(builder.Builder):
             outer_wrapper.OuterWrapperBuilder(params),
         ]
         self.simple_filenames = [
+            os.path.join(config.hdldir, 'pyvivado_utils.vhd'),
+            os.path.join(config.hdldir, 'wrapper', 'clock.vhd'),
+            os.path.join(config.hdldir, 'wrapper', 'txt_util.vhd'),
             os.path.join(config.hdldir, 'wrapper', 'read_file.vhd'),
             os.path.join(config.hdldir, 'wrapper', 'write_file.vhd'),
-            os.path.join(config.hdldir, 'wrapper', 'txt_util.vhd'),
-            os.path.join(config.hdldir, 'wrapper', 'clock.vhd'),
-            os.path.join(config.hdldir, 'pyvivado_utils.vhd'),
         ]
 
     def get_filename(self, directory):

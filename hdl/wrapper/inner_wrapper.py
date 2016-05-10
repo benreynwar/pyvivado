@@ -54,10 +54,15 @@ class InnerWrapperBuilder(builder.Builder):
         if self.interface.needs_dummy:
             self.builders = [
                 dummy_wrapper.DummyWrapperBuilder(self.template_params),
+                self.interface.builder,
+            ]
+        else:
+            self.builders = [
+                self.interface.builder,
             ]
         self.packages = [
             'pyvivado_utils',
-            'pyvivado_utils_sv',
+            #'pyvivado_utils_sv',
         ]
         
     def get_filename(self, directory):
@@ -83,3 +88,7 @@ class InnerWrapperBuilder(builder.Builder):
         return [
             self.get_filename(directory),
         ]
+
+    def required_packages(self):
+        # Assumes that we can just remove 'work.' to get package name.
+        return [p[len('work.'):] for p in self.interface.packages]

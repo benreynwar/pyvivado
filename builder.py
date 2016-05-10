@@ -14,6 +14,7 @@ package_register = {}
 # They are registered as modules if they take more local parameters.
 module_register = {}
 
+
 def make_hashable(d):
     if isinstance(d, collections.OrderedDict):
         hs = []
@@ -47,7 +48,7 @@ class Builder(object):
     '''
     Responsible for generating and specifying the files and IPs
     required for a module.
-    
+
     Each module creates a subclass of this.
     '''
 
@@ -185,8 +186,23 @@ def get_all_builders(top_builders=[], top_package=None, top_params={}):
                 package_builder = package_register[new_package](top_params)
                 assert(package_builder._id() == new_package)
                 todo_builders[new_package] = package_builder
-    builders = done_builders.values()
-    return builders
+    # Now we want to order the builders so that dependencies are
+    # always earlier in the list.
+    unordered_ids = set(done_builders.keys())
+    ordered_ids = set()
+    ordered_builders = []
+    while unordered_ids:
+        key = unordered_ids.pop()
+        b = done_builders[key]
+        package_deps = [package_register[p](top_params)._id() for p in b.required_packages()]
+        builder_deps = [p._id() for p in b.required_builders()]
+        if not (set(package_deps) | set(builder_deps)) - ordered_ids:
+            ordered_builders.append(b)
+            ordered_ids.add(key)
+        else:
+            unordered_ids.add(key)
+    return ordered_builders
+
 
 def condense_ips(ips):
     '''
@@ -201,20 +217,24 @@ def condense_ips(ips):
             ip_hashs.add(ip_hash)
     return condensed_ips
 
+
 def get_requirements(builders, directory):
     '''
     Get all the files and IPs required by a list of builders.
     '''
-    filenames = set()
+    filenames = []
     ips = []
     ip_hashs = set()
     for builder in builders:
         ips += builder.required_ips()
-        filenames |= set(builder.required_filenames(directory))
+        for fn in builder.required_filenames(directory):
+            if fn not in filenames:
+                filenames.append(fn)
     return {
         'filenames': filenames,
         'ips': condense_ips(ips),
     }
+
 
 def build_all(directory, top_builders=[], top_package=None, top_params={},
               false_directory=None):
@@ -246,15 +266,16 @@ def make_simple_builder(filenames=[], builders=[], ips=[]):
     Construct a builder that takes no parameters.
     '''
     class SimpleBuilder(Builder):
-        
+
         def __init__(self, params, package_name=None):
             assert(params == {})
             super().__init__(params=params, package_name=package_name)
             self.simple_filenames = filenames
             self.builders = builders
             self.simple_ips = ips
-            
+
     return SimpleBuilder
+
 
 def make_template_builder(template_fn):
     '''
@@ -271,12 +292,11 @@ def make_template_builder(template_fn):
             template_fn, possible_endings)
 
     class TemplateBuilder(Builder):
-        
+
         def __init__(self, params):
             super().__init__(params)
             self.params_hash = hash(make_hashable(params))
-        
+
         def filename(self, directory):
             return os.path.join(
                 directory, '{}{}{}'.format(stem, self.params_hash, suffix))
-    
