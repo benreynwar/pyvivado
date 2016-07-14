@@ -7,6 +7,8 @@ shdir = os.path.join(basedir, 'sh')
 hdldir = os.path.join(basedir, 'hdl')
 testdir = os.path.join(basedir, 'test_outputs')
 
+synopsys_libdir = os.path.join(basedir, '..', '..', 'libs')
+
 vivado = r'/opt/Xilinx/Vivado/2015.1/bin/vivado'
 
 default_board = 'dummy'

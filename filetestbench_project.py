@@ -3,6 +3,7 @@ import logging
 import filecmp
 
 from pyvivado.base_project import BuilderProject
+from pyvivado.interface import module_register
 
 from pyvivado.hdl.wrapper import inner_wrapper, file_testbench
 
@@ -16,18 +17,14 @@ class FileTestBenchProject(BuilderProject):
     '''
 
     @classmethod
-    def make_parent_params(cls, interface, directory):
+    def make_parent_params(cls, directory, interface):
         '''
         Takes an `Interface` object for the module we are testing and
         generates the parameters required by `BuilderProject.create`.
         '''
-        inner_wrapper_builder = inner_wrapper.InnerWrapperBuilder({
-            'interface': interface,
-        })
-        file_testbench_builder = file_testbench.FileTestbenchBuilder({
-            'interface': interface,
-        })
         interface.parameters['factory_name'] = interface.factory_name
+        inner_wrapper_builder = inner_wrapper.InnerWrapperBuilder(interface.parameters)
+        file_testbench_builder = file_testbench.FileTestbenchBuilder(interface.parameters)
         return {
             'design_builders': [inner_wrapper_builder, interface.builder],
             'simulation_builders': [file_testbench_builder],
@@ -36,33 +33,18 @@ class FileTestBenchProject(BuilderProject):
             'directory': directory,
         }
 
-    @classmethod
-    def create(cls, interface, directory, overwrite_ok=False):
-        '''
-        Create a new FileTestBenchProject if one does not already exist in the 
-        directory.  If one does exist and the dependencies have been modified
-        then delete the old project and create a new one.  If one does exist
-        and the dependencies have not been modified then use the existing
-        project.
-
-        Args: 
-            `interface`: The `Interface` object for the top level module.
-            `directory`: The directory where the project will be created.
-            `overwrite_ok`: OK to modify parameters if the file already exists.
-        '''
-        parent_params = cls.make_parent_params(
-            interface=interface, directory=directory)
-        p = super().create(overwrite_ok=overwrite_ok, **parent_params)
-        return p
-
-    def __init__(self, directory, interface=None, overwrite_ok=False):
+    def __init__(self, directory, interface=None, params=None,
+                 overwrite_ok=False, exclude_fn=None, additional_files=[]):
         '''
         Create a python wrapper around an existing Vivado testbench project.
         '''
-        if interface is not None:
+        if (params is not None) or (interface is not None):
+            if interface is None:
+                interface = module_register[params['factory_name']](params)
             parent_params = self.make_parent_params(
-                interface=interface, directory=directory)
-            super().__init__(overwrite_ok=overwrite_ok, **parent_params)
+                interface=interface,  directory=directory)
+            super().__init__(overwrite_ok=overwrite_ok, exclude_fn=exclude_fn,
+                             additional_files=additional_files, **parent_params)
             self.interface = interface
         else:
             super().__init__(directory=directory, overwrite_ok=overwrite_ok)

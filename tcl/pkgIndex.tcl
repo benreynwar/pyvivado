@@ -9,4 +9,5 @@
 # full path name of this file's directory.
 
 package ifneeded pyvivado 0.1 [list source [file join $dir pyvivado.tcl]]
+package ifneeded hurtling 0.1 [list source [file join $dir hurtling.tcl]]
 package ifneeded redis 0.1 [list source [file join $dir redis.tcl]]

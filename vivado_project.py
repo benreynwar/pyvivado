@@ -1,9 +1,10 @@
 import os
 import logging
 import shutil
+import time
 
-from pyvivado import boards, tasks_collection, hash_helper
-from pyvivado import params_helper, vivado_task
+from pyvivado import boards, tasks_collection, hash_helper, redis_utils, config
+from pyvivado import params_helper, vivado_task, connection
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,8 @@ class VivadoProject(object):
     Also does some management of Vivado processes (`Task`s) that are run.
     '''
 
-    def __init__(self, project, part=None, board=None, overwrite_ok=False):
+    def __init__(self, project, part=None, board=None, overwrite_ok=False,
+            wait_for_creation=False):
         '''
         Create a new Vivado project.
 
@@ -58,7 +60,9 @@ class VivadoProject(object):
                     refresh = True
         else:
             if not self.new:
-                raise Exception('No Part of Board parameters found for existing vivado project.')
+                import pdb
+                pdb.set_trace()
+                raise Exception('No Part or Board parameters found for existing vivado project.')
         self.part = part
         self.board = board
         self.hash_helper = hash_helper.HashHelper(self.directory, self.project.get_hash)
@@ -75,7 +79,12 @@ class VivadoProject(object):
             os.mkdir(self.directory)
             self.params_helper.write(new_params)
             self.hash_helper.write()
-            self.launch_create_task()
+            logger.debug('launching create task')
+            self.create_task = self.launch_create_task()
+            if wait_for_creation:
+                self.create_task.wait()
+        else:
+            self.create_task = None
 
     @classmethod
     def directory_from_project(cls, project):
@@ -159,6 +168,7 @@ class VivadoProject(object):
             command_text=command,
         )
         t.run()
+        return t
 
     def utilization_file(self, from_synthesis=False):
         if from_synthesis:
@@ -232,10 +242,9 @@ class VivadoProject(object):
         else:
             command_templ = '::pyvivado::open_and_synthesize {{{}}} {{}}'
         t = vivado_task.VivadoTask.create(
-            parent_directory=self.directory,
             command_text=command_templ.format(self.directory),
             description='Synthesize project.',
-            tasks_collection=self.tasks_collection,
+            collection=self.tasks_collection,
         )
         t.run()
         return t
@@ -245,11 +254,10 @@ class VivadoProject(object):
         Spawn a Vivado process to implement the project.
         '''
         t = vivado_task.VivadoTask.create(
-            parent_directory=self.directory,
             command_text='::pyvivado::open_and_implement {{{}}}'.format(
                 self.directory),
             description='Implement project.',
-            tasks_collection=self.tasks_collection,
+            collection=self.tasks_collection,
         )
         t.run()
         return t
@@ -263,7 +271,6 @@ class VivadoProject(object):
         else:
             command_templ = '::pyvivado::generate_impl_reports {{{}}}'
         t = vivado_task.VivadoTask.create(
-            parent_directory=self.directory,
             command_text=command_templ.format(self.directory),
             description='Generate reports.',
             tasks_collection=self.tasks_collection,
@@ -291,7 +298,7 @@ open_project {{{project_filename}}}
 '''
         command = command_template.format(
             project_filename=self.filename, runtime=runtime, sim_type=sim_type,
-            test_name=test_name, directory=self.directory,
+            test_name=test_name, directory=self.directory.replace('\\', '/'),
             simulation_files=' '.join([
                 '{'+f+'}' for f in simulation_files]),
             )
@@ -314,3 +321,114 @@ open_project {{{project_filename}}}
             data_out = self.project.interface.read_output_file(
                 os.path.join(t.directory, output_filename))
         return errors, data_out
+
+    def get_monitors_hwcode(self, monitor_task):
+        '''
+        Get the hardware code for the FPGA that this project has been deployed to.
+        '''
+        max_waits = 120
+        n_waits = 0
+        hwcode = None
+        while (hwcode is None) and (n_waits < max_waits) and (not monitor_task.is_finished()):
+            hwcode = connection.get_projdir_hwcode(self.directory)
+            n_waits += 1
+            time.sleep(1)
+        # If the task is finished something must have gone wrong
+        # so log it's messages.
+        if monitor_task.is_finished():
+            monitor_task.log_messages(monitor_task.get_messages())
+        deploy_errors = monitor_task.get_errors()
+        logger.debug('Waited {}s to see deployment'.format(n_waits))
+        if (len(deploy_errors) != 0):
+            raise Exception('Got send_to_fpga_and_monitor errors.')
+        if hwcode is None:
+            raise Exception('Failed to deploy project')
+        return hwcode
+
+    def wait_for_monitor(self, hwcode, monitor_task):
+        max_waits = 120
+        n_waits = 0
+        # Check to see that correct proj_dir is associated with the hwcode
+        # and that it has been monitored recently.
+        def checks_out():
+            projdir_correct = (self.directory == connection.get_hwcode_projdir(hwcode))
+            active = redis_utils.hwcode_A_active(hwcode)
+            return projdir_correct and active
+        while (not checks_out()) and (n_waits < max_waits) and (not monitor_task.is_finished()):
+            n_waits += 1
+            time.sleep(1)
+        # If the task is finished something must have gone wrong
+        # so log it's messages.
+        if monitor_task.is_finished():
+            monitor_task.log_messages(monitor_task.get_messages())
+        deploy_errors = monitor_task.get_errors()
+        logger.debug('Waited {}s to see deployment'.format(n_waits))
+        if (len(deploy_errors) != 0):
+            raise Exception('Got send_to_fpga_and_monitor errors.')
+
+    def monitor_existing(self):
+        '''
+        Find an FPGA running this project that is not already monitored, and start
+        monitoring it.
+
+        Returns a (t, conn) tuple where:
+            `t`: is the `Task` wrapping the Vivado process monitoring the FPGA, and
+            `conn`: is the `Connection` with which this python process can
+                 communicate the monitor.
+        '''
+        hwcode = redis_utils.get_unmonitored_projdir_hwcode(self.directory)
+        if hwcode is None:
+            raise Exception('No free hardware running this project found.')
+        hwtarget, jtagfreq = config.hwtargets[hwcode]
+        description = 'Monitor Redis connection and pass command to FPGA.'
+        t = vivado_task.VivadoTask.create(
+            collection=self.tasks_collection,
+            command_text='::pyvivado::monitor_redis {} {} {:0} 0'.format(hwcode, hwtarget, int(jtagfreq)),
+            description=description,
+        )
+        t.run()
+        self.wait_for_monitor(hwcode=hwcode, monitor_task=t)
+        conn = connection.Connection(hwcode)
+        return t, conn
+
+
+    def send_to_fpga_and_monitor(self, fake=False):
+        '''
+        Send the bitstream of this project to an FPGA and start
+        monitoring that FPGA.
+
+        Returns a (t, conn) tuple where:
+            `t`: is the `Task` wrapping the Vivado process monitoring the FPGA, and
+            `conn`: is the `Connection` with which this python process can
+                 communicate the monitor.
+        '''
+        if fake:
+            # First kill any monitors connected to this project.
+            connection.kill_free_monitors(self.directory)
+            fake_int = 1
+            description = 'Faking sending the project to fpga and monitoring.'
+        else:
+            fake_int = 0
+            description = 'Sending project to fpga and monitoring.'
+        # Get the hardware code for an unmonitored FPGA.
+        self.params = self.project.params_helper.read()
+        hwcode = redis_utils.get_free_hwcode(self.params['board_params']['name'])
+        if hwcode is None:
+            raise Exception('No free hardware found.')
+        hwtarget, jtagfreq = config.hwtargets[hwcode]
+        logger.info('Using hardware: {}'.format(hwcode))
+        # Spawn a Vivado process to deploy the bitstream and
+        # start monitoring.
+        t = vivado_task.VivadoTask.create(
+            collection=self.tasks_collection,
+            command_text='::pyvivado::send_to_fpga_and_monitor {{{}}} {} {} {} {}'.format(
+                self.directory, hwcode, hwtarget, int(jtagfreq), fake_int),
+            description=description,
+        )
+        t.run()
+        # Wait for the task to start monitoring and get the
+        # hardware code of the free fpga.
+        self.wait_for_monitor(hwcode=hwcode, monitor_task=t)
+        # Create a Connection object for communication with the FPGA/
+        conn = connection.Connection(hwcode)
+        return t, conn

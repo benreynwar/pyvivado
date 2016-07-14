@@ -67,11 +67,13 @@ def get_hash_from_builders(
 
 def make_files_and_ip(
         directory, design_builders, simulation_builders, parameters,
-        top_module):
+        top_module, exclude_fn=None):
     design_requirements = builder.build_all(
-        directory, top_builders=design_builders, top_params=parameters)
+        directory, top_builders=design_builders, top_params=parameters,
+        exclude_fn=exclude_fn)
     simulation_requirements = builder.build_all(
-        directory, top_builders=simulation_builders, top_params=parameters)
+        directory, top_builders=simulation_builders, top_params=parameters,
+        exclude_fn=exclude_fn)
     ips = builder.condense_ips(
         design_requirements['ips'] + simulation_requirements['ips'])
     files_and_ip = {
@@ -96,20 +98,24 @@ class BaseProject(object):
            `directory`: Location of the project.
         '''
         self.directory = os.path.abspath(directory)
+        if not os.path.exists(directory):
+            os.mkdir(directory)
         self.hash_helper = hash_helper.HashHelper(
             self.directory, self.get_hash)
         self.file_helper = params_helper.FilesHelper(self.directory)
         if files_and_ip is not None:
-            self.files_and_ip = files_and_ip
             old_files_and_ip = self.file_helper.read()
             if old_files_and_ip is not None:
-                if self.files_and_ip == files_and_ip:
+                if self.file_helper.has_changed(files_and_ip):
                     if not overwrite_ok:
                         raise Exception('Project has changed. Cannot overwrite.')
                     else:
                         self.file_helper.write(self.files_and_ip, overwrite_ok=True)
             else:
-                self.file_helper.write(self.files_and_ip)
+                self.file_helper.write(files_and_ip)
+        else:
+            files_and_ip = self.file_helper.read()
+        self.files_and_ip = files_and_ip
         if self.hash_helper.is_changed():
             if not overwrite_ok:
                 raise Exception('Project has changed.  Cannot overwrite.')
@@ -143,26 +149,58 @@ class BuilderProject(BaseProject):
     '''
 
     def __init__(
-            self, design_builders, simulation_builders, parameters,
-            directory, top_module='', overwrite_ok=False):
-        self.design_builders = design_builders
-        self.simulation_builders = simulation_builders
-        self.parameters = parameters
-        self.top_module = top_module
-        files_and_ip = make_files_and_ip(
-            directory=directory,
-            design_builders=design_builders,
-            simulation_builders=simulation_builders,
-            parameters=parameters,
-            top_module=top_module,
-            )
+            self, directory, design_builders=None, simulation_builders=None,
+            parameters=None, top_module=None, overwrite_ok=False,
+            exclude_fn=None, additional_files=[]):
+        params_fn = os.path.join(directory, 'params.txt')
+        self.params_helper = params_helper.ParamsHelper(params_fn)
+        if not os.path.exists(directory):
+            os.mkdir(directory)
+            old_params = None
+        else:
+            old_params = self.params_helper.read()
+            assert(old_params is not None)
+        if design_builders is not None:
+            parameters['design_builders'] = [b._id() for b in design_builders]
+        if simulation_builders is not None:
+            parameters['simulation_builders'] = [b._id() for b in simulation_builders]
+        if top_module is not None:
+            parameters['top_module'] = top_module
+        if (old_params is not None):
+            if (parameters is not None) and self.params_helper.has_changed(parameters):
+                import pdb
+                pdb.set_trace()
+                raise Exception('Parameters do not match saved values')
+            files_and_ip = None
+            design_builder_ids = old_params['design_builders']
+            simulation_builder_ids = old_params['simulation_builders']
+            self.design_builders = [
+                    builder.from_id(db, old_params)
+                    for db in design_builder_ids]
+            self.simulation_builders = [
+                    builder.from_id(db, old_params)
+                    for db in simulation_builder_ids]
+            self.parameters = old_params
+            self.top_module = old_params['top_module']
+        else:
+            self.params_helper.write(parameters)
+            self.design_builders = design_builders
+            self.simulation_builders = simulation_builders
+            self.parameters = parameters
+            self.top_module = top_module
+            files_and_ip = make_files_and_ip(
+                directory=directory,
+                design_builders=design_builders,
+                simulation_builders=simulation_builders,
+                parameters=parameters,
+                top_module=top_module,
+                exclude_fn=exclude_fn,
+                )
+            files_and_ip['design_files'] += additional_files
         super().__init__(
             directory=directory,
             files_and_ip=files_and_ip,
             overwrite_ok=overwrite_ok)
-        params_fn = os.path.join(self.directory, 'params.txt')
-        self.params_helper = params_helper.ParamsHelper(params_fn)
-        super().__init__(directory)
 
     def get_hash(self):
         return get_hash_from_builders(
@@ -172,41 +210,4 @@ class BuilderProject(BaseProject):
             top_module=self.top_module,
             parameters=self.parameters,
             )
-
-    @classmethod
-    def create(cls, design_builders, simulation_builders, parameters,
-               directory, top_module='', overwrite_ok=False):
-        '''
-        Create a new project from `Builder`'s specifying the top level
-        modules.
-
-        Args:
-            `design_builders`: The builders responsible for the synthesizable code.
-            `simulation_builders`: The builders responsible for the simulation code.
-            `parameters`: Top level parameters used to generated the design.  Must include
-                'factory_name' which will be used to find the `interface` for test bench
-                projects that read the parameters and the `comm` for fpga projects. 
-            `temp_directory`: We temporary directory where we'll generate the files
-                so we can work out the hash.
-            `directory`: The real project location.  This is required since some
-                simulation files may need this information.
-            `top_module`: The top level module in the design.
-        '''
-
-        design_requirements = builder.build_all(
-            directory, top_builders=design_builders, top_params=parameters)
-        simulation_requirements = builder.build_all(
-            directory, top_builders=simulation_builders, top_params=parameters)
-        ips = builder.condense_ips(
-            design_requirements['ips'] + simulation_requirements['ips'])
-        p = super().create(
-            directory=directory,
-            design_files=design_requirements['filenames'],
-            simulation_files=simulation_requirements['filenames'],
-            ips=ips,
-            top_module=top_module,
-            overwrite_ok=overwrite_ok,
-        )
-        p.params_helper.write(parameters)
-        return p
 

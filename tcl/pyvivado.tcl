@@ -214,7 +214,8 @@ proc ::pyvivado::run_timing_simulation {proj_dir test_name runtime simulation_fi
 #          did any just return 0 for all AXI read commands.
 proc ::pyvivado::send_to_fpga_and_monitor {proj_dir hwcode hwtarget jtagfreq fake} {
     if {$fake == 0} {
-	connect_hw_server -host localhost -port 60001 -url localhost:3121
+  open_hw
+	connect_hw_server -url localhost:3121
 	current_hw_target [get_hw_targets $hwtarget]
 	set_property PARAM.FREQUENCY $jtagfreq [get_hw_targets $hwtarget]
 	open_hw_target

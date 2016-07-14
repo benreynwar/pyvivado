@@ -72,6 +72,9 @@ class Interface(object):
         if needs_dummy:
             self.module_name = 'DummyDutWrapper'
 
+    def _id(self):
+        return self.factory_name
+
     def total_width_in(self):
         '''
         Get the total width of all the input wires.

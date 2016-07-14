@@ -1,5 +1,8 @@
 import subprocess
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_git_label():
     wd = os.getcwd()

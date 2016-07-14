@@ -1,17 +1,17 @@
 import os
 import logging
 
-from pyvivado import interface, signal, config, builder, utils
+from pyvivado import config, builder, utils, interface
 from pyvivado.hdl.wrapper import dummy_wrapper
-from pyvivado.hdl import pyvivado_utils
 
 logger = logging.getLogger(__name__)
+
 
 class InnerWrapperBuilder(builder.Builder):
 
     def __init__(self, params):
-        super().__init__(params)
-        self.interface = params['interface']
+        super().__init__(params, package_name='InnerWrapper')
+        self.interface = interface.module_register[params['factory_name']](params)
         self.language = self.interface.language
         signals_in = []
         for wire_name, wire_type in self.interface.wires_in:
@@ -64,7 +64,7 @@ class InnerWrapperBuilder(builder.Builder):
             'pyvivado_utils',
             #'pyvivado_utils_sv',
         ]
-        
+
     def get_filename(self, directory):
         if self.language == 'vhdl':
             fn = os.path.join(directory, 'inner_wrapper.vhd')
@@ -83,7 +83,7 @@ class InnerWrapperBuilder(builder.Builder):
             raise ValueError('Unknown language: {}'.format(self.language))            
         output_fn = self.get_filename(directory)
         utils.format_file(template_fn, output_fn, self.template_params)
-        
+
     def required_filenames(self, directory):
         return [
             self.get_filename(directory),
@@ -92,3 +92,8 @@ class InnerWrapperBuilder(builder.Builder):
     def required_packages(self):
         # Assumes that we can just remove 'work.' to get package name.
         return [p[len('work.'):] for p in self.interface.packages]
+
+
+name = 'InnerWrapper'
+assert(name not in builder.package_register)
+builder.package_register[name] = InnerWrapperBuilder

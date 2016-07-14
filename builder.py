@@ -1,8 +1,10 @@
-import collections
 import logging
 import inspect
 import os
 import subprocess
+import json
+
+from pyvivado.params_helper import make_constant_hashable, make_hashable
 
 
 logger = logging.getLogger(__name__)
@@ -15,33 +17,16 @@ package_register = {}
 module_register = {}
 
 
-def make_hashable(d):
-    if isinstance(d, collections.OrderedDict):
-        hs = []
-        for k, v in d.items():
-            hs.append((k, make_hashable(v)))
-        h = tuple(hs)
-    elif isinstance(d, dict):
-        hs = []
-        for k, v in d.items():
-            hs.append((k, make_hashable(v)))
-        h = frozenset(hs)
-    elif (isinstance(d, list) or isinstance(d, tuple)):
-        hs = []
-        for v in d:
-            hs.append(make_hashable(v))
-        h = tuple(hs)
-    elif (isinstance(d, set) or isinstance(d, frozenset)):
-        hs = []
-        for v in d:
-            hs.append(make_hashable(v))
-        h = frozenset(hs)        
-    elif not isinstance(d, collections.Hashable):
-        logger.error('Cannot hash {}'.format(d))
-        h = d
+def from_id(_id, top_params):
+    as_tuple = json.loads(_id)
+    if as_tuple[0] == 'package':
+        b = package_register[as_tuple[1]](top_params)
+    elif as_tuple[0] == 'not_package':
+        b = module_register[as_tuple[1]](as_tuple[2], top_params)
     else:
-        h = d
-    return h
+        raise ValueError(
+            '_id is not in form expected for a Builder "{}".'.format(_id))
+    return b
 
 
 class Builder(object):
@@ -87,12 +72,26 @@ class Builder(object):
         Generates a unique ID for the module.  This is useful so that
         we can track which modules have been generated and we don't generate
         the same one twice.
+        We should also be able to regenerated from the id.
+        ie. It can be saved to a file to regenerated object later.
         '''
         if self.package_name is not None:
-            _id = self.package_name
+            as_tuple = ('package', self.package_name)
         else:
-            _id = (self.__class__, make_hashable(self.params))
+            builder_name = self.__class__.__name__[:-len('Builder')]
+            as_tuple = ('not_package', builder_name,
+                        make_constant_hashable(self.params))
+        _id = json.dumps(as_tuple)
         return _id
+
+    def group_id(self):
+        return None
+
+    def make_group_builder(self):
+        return None
+
+    def set_group_builder(self):
+        raise Exception('Unimplemented')
 
     def required_filenames(self, directory):
         '''
@@ -160,47 +159,70 @@ def params_from_xco(xco_filename):
     return params
 
 
-def get_all_builders(top_builders=[], top_package=None, top_params={}):
+def get_all_builders(top_builders=[], top_package=None, top_params={}, exclude_fn=None):
     '''
     Takes a list of builders and generate a list of all required builders
     by looking at their dependencies.
     '''
+    group_builders = {}
     done_builders = {}
-    todo_builders = {}
+    next_level_builders = {}
     for top_builder in top_builders:
-        todo_builders[top_builder._id()] = top_builder
+        next_level_builders[top_builder._id()] = top_builder
     if top_package:
-        package_builder = package_register[package_name](top_params)
-        todo_builders[package_builder._id()] = package_builder
-    while todo_builders:
-        active_id = list(todo_builders.keys())[0]
-        active_builder = todo_builders[active_id]
-        del todo_builders[active_id]
-        done_builders[active_id] = active_builder
-        for new_builder in active_builder.required_builders():
-            _id = new_builder._id()
-            if _id not in done_builders:
-                todo_builders[_id] = new_builder
-        for new_package in active_builder.required_packages():
-            if new_package not in done_builders:
+        package_builder = package_register[top_package](top_params)
+        next_level_builders[package_builder._id()] = package_builder
+    builder_level = 0
+    done_levels = {}
+    all_builders = {}
+    while next_level_builders:
+        this_level_builders = next_level_builders
+        next_level_builders = {} 
+        for active_id in this_level_builders:
+            # This allows us to exclude some builders.
+            # Useful if we have already synthesised some subset of the design
+            # and wish to handle that independently.
+            if exclude_fn and exclude_fn(active_id):
+                continue
+            active_builder = this_level_builders[active_id]
+            group_id = active_builder.group_id()
+            if group_id is not None:
+                if group_id not in group_builders:
+                    group_builder = active_builder.make_group_builder()
+                    group_builders[group_id] = group_builder
+                    all_builders[group_id] = group_builder
+                else:
+                    group_builder = group_builders[group_id]
+                done_levels[group_id] = builder_level
+                group_builders[group_id].add(active_builder)
+                required_builders = group_builder.required_builders()
+                required_packages = group_builder.required_packages()
+            else:
+                all_builders[active_id] = active_builder
+                done_levels[active_id] = builder_level
+                required_builders = active_builder.required_builders()
+                required_packages = active_builder.required_packages()
+            for new_builder in required_builders:
+                _id = new_builder._id()
+                next_level_builders[_id] = new_builder
+            for new_package in required_packages:
                 package_builder = package_register[new_package](top_params)
-                assert(package_builder._id() == new_package)
-                todo_builders[new_package] = package_builder
-    # Now we want to order the builders so that dependencies are
-    # always earlier in the list.
-    unordered_ids = set(done_builders.keys())
-    ordered_ids = set()
+                package_id = package_builder._id() 
+                next_level_builders[package_id] = package_builder
+        builder_level += 1
+        if builder_level > 100:
+            import pdb
+            pdb.set_trace()
+    grouped_by_level = [[] for i in range(builder_level)]
+    for active_id in done_levels:
+        builder_level = done_levels[active_id]
+        grouped_by_level[builder_level].append(all_builders[active_id])
     ordered_builders = []
-    while unordered_ids:
-        key = unordered_ids.pop()
-        b = done_builders[key]
-        package_deps = [package_register[p](top_params)._id() for p in b.required_packages()]
-        builder_deps = [p._id() for p in b.required_builders()]
-        if not (set(package_deps) | set(builder_deps)) - ordered_ids:
-            ordered_builders.append(b)
-            ordered_ids.add(key)
-        else:
-            unordered_ids.add(key)
+    for group in reversed(grouped_by_level):
+        group_dict = dict([(g._id(), g) for g in group])
+        keys = list(group_dict.keys())
+        keys.sort()
+        ordered_builders += [group_dict[k] for k in keys]
     return ordered_builders
 
 
@@ -237,7 +259,7 @@ def get_requirements(builders, directory):
 
 
 def build_all(directory, top_builders=[], top_package=None, top_params={},
-              false_directory=None):
+              false_directory=None, exclude_fn=None):
     '''
     Takes a few top level builders, works out what all the
     dependencies are, generates all the required files, and returns
@@ -246,7 +268,8 @@ def build_all(directory, top_builders=[], top_package=None, top_params={},
     '''
     builders = get_all_builders(top_builders=top_builders,
                                 top_package=top_package,
-                                top_params=top_params)
+                                top_params=top_params,
+                                exclude_fn=exclude_fn,)
     for builder in builders:
         argspec = inspect.getargspec(builder.build)
         # Don't force all builders to take 'false_directory' or

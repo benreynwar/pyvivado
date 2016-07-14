@@ -1,7 +1,7 @@
 import os
 import logging
 
-from pyvivado import config, builder, utils
+from pyvivado import config, builder, utils, interface
 from pyvivado.hdl.wrapper import outer_wrapper
 
 logger = logging.getLogger(__name__)
@@ -10,8 +10,10 @@ logger = logging.getLogger(__name__)
 class FileTestbenchBuilder(builder.Builder):
 
     def __init__(self, params):
-        super().__init__(params)
-        self.interface = params['interface']
+        super().__init__(params, package_name='FileTestbench')
+        self.interface = params.get('interface', None)
+        self.interface = interface.module_register[params['factory_name']](params)
+        self.language = self.interface.language
         self.builders = [
             outer_wrapper.OuterWrapperBuilder(params),
         ]
@@ -46,9 +48,13 @@ class FileTestbenchBuilder(builder.Builder):
             'dut_parameters': self.interface.module_parameters,
         }
         utils.format_file(template_fn, output_fn, template_params)
-        
+
     def required_filenames(self, directory):
         return self.simple_filenames + [
             self.get_filename(directory),
         ]
 
+
+name = 'FileTestbench'
+assert(name not in builder.package_register)
+builder.package_register[name] = FileTestbenchBuilder

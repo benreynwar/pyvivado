@@ -4,10 +4,15 @@ import testfixtures
 import logging
 import shutil
 
-from pyvivado import filetestbench_project, fpga_project, vivado_project, vcs_project
-from pyvivado import config, external
+from pyvivado import filetestbench_project, fpga_project, vcs_project
+from pyvivado import config
 
 logger = logging.getLogger(__name__)
+
+# Import to make available is register
+from pyvivado.hdl.wrapper import file_testbench
+logger.debug('loading file testbench')
+
 
 default_clock_period = 10
 default_extra_clock_periods = 20
@@ -28,64 +33,75 @@ def check_output(output_data, expected_data):
     testfixtures.compare(output_data, expected_data)
 
 
-def simulate(interface, directory, data, test_name, sim_type,
+def simulate(directory, data, test_name, sim_type,
+             interface=None,
+             params=None,
              board=config.default_board,
              clock_period=default_clock_period,
              extra_clock_periods=default_extra_clock_periods,
-             external_test=False,
-             force_refresh=False):
+             force_refresh=False,
+             exclude_fn=None,
+             additional_files=[]):
+
+    if interface is None:
+        if params is None:
+            raise ValueError('No params passed.')
+    else:
+        logger.warning('Deprecated: Pass parameters rather than interface')
+        if params:
+            raise ValueError('Do not pass interface as well as params. Just pass params.')
+        params = interface.parameters
+        params['module_name'] = interface.module_name
 
     if force_refresh and os.path.exists(directory):
         shutil.rmtree(directory)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
 
-    if not external_test:
-        # Make the project.
-        logger.info('Making a FileTestBench Project')
-        p = filetestbench_project.FileTestBenchProject(
-            interface=interface, directory=directory,
-            overwrite_ok=True,
-        )
-        p.update_input_data(input_data=data, test_name=test_name)
-        if sim_type.startswith('vivado'):
-            vivado_sim_type = sim_type[len('vivado_'):]
-            logger.info('Making a Vivado Project')
-            v = vivado_project.VivadoProject(p, overwrite_ok=True)
-            if v.new:
-                logger.info('Waiting for task')
-                t = v.tasks_collection.wait_for_most_recent_task()
-                logger.info('Logging errors')
-                errors = t.get_errors()
-                for error in errors:
-                    logger.error(error)
-                assert(len(errors) == 0)
-
-            # Run the simulation.
-            runtime = '{} ns'.format((len(data) + extra_clock_periods) *
-                                     clock_period)
-            errors, output_data = v.run_simulation(
-                test_name=test_name, runtime=runtime, sim_type=vivado_sim_type)
+    # Make the project.
+    logger.info('Making a FileTestBench Project')
+    p = filetestbench_project.FileTestBenchProject(
+        params=params, directory=directory,
+        overwrite_ok=True,
+        exclude_fn=exclude_fn,
+        additional_files=additional_files,
+    )
+    logger.debug('Updating input data')
+    p.update_input_data(input_data=data, test_name=test_name)
+    if sim_type.startswith('vivado'):
+        vivado_sim_type = sim_type[len('vivado_'):]
+        logger.info('Making a Vivado Project')
+        v = vivado_project.VivadoProject(p, overwrite_ok=True)
+        if v.new:
+            logger.info('Waiting for task')
+            t = v.tasks_collection.wait_for_most_recent_task()
+            logger.info('Logging errors')
+            errors = t.get_errors()
             for error in errors:
                 logger.error(error)
             assert(len(errors) == 0)
-        elif sim_type.startswith('vcs'):
-            vcs_sim_type = sim_type[len('vcs_'):]
-            if vcs_sim_type == 'hdl':
-                v = vcs_project.VCSProject(p)
-                errors, output_data = v.run_hdl_simulation(test_name=test_name)
-                for error in errors:
-                    logger.error(error)
-                assert(len(errors) == 0)
-            else:
-                raise ValueError('Unknown VCS sim type: {}'.format(vcs_sim_type))
-        else:
-            raise ValueError('Unknown sim_type: {}'.format(sim_type))
 
-        return output_data[1:]
+        # Run the simulation.
+        runtime = '{} ns'.format((len(data) + extra_clock_periods) *
+                                    clock_period)
+        errors, output_data = v.run_simulation(
+            test_name=test_name, runtime=runtime, sim_type=vivado_sim_type)
+        for error in errors:
+            logger.error(error)
+        assert(len(errors) == 0)
+    elif sim_type.startswith('vcs'):
+        vcs_sim_type = sim_type[len('vcs_'):]
+        logger.debug('create vcs project')
+        v = vcs_project.VCSProject(p)
+        logger.debug('run simulation')
+        errors, output_data = v.run_simulation(
+            test_name=test_name, sim_type=vcs_sim_type)
+        logger.debug('finished run simulation')
+        for error in errors:
+            logger.error(error)
+        assert(len(errors) == 0)
     else:
-        external.make_directory(interface, directory, data)
-        return []
+        raise ValueError('Unknown sim_type: {}'.format(sim_type))
+
+    return output_data[1:]
 
 
 def run_test(test_class, test_name='default_test', logging_level=logging.DEBUG):
@@ -140,32 +156,55 @@ def deploy_and_test(
 
 
 def simulate_and_test(
-        interface, directory, reset_input, tests, test_name,
+        directory, reset_input, tests, test_name,
+        interface=None,
+        params=None,
         wait_lines=20,
         board=config.default_board,
-        sim_type='hdl',
+        sim_type='vivado_hdl',
         clock_period=default_clock_period,
         extra_clock_periods=default_extra_clock_periods,
-        external_test=False,
+        split_tag='STARTING_NEW_TEST',
         pause=False,
-        force_refresh=False):
+        force_refresh=False,
+        exclude_fn=None,
+        additional_files=[],
+    ):
     '''
     Run a single vivado simulation which contains many independent tests
     that are run one after another in a single simulation.
     '''
+    logger.debug('staring simulate and test')
+    if interface is None:
+        if params is None:
+            raise ValueError('No params passed.')
+    else:
+        logger.warning('Deprecated: Pass parameters rather than interface')
+        if params:
+            raise ValueError('Do not pass interface as well as params. Just pass params.')
+        params = interface.parameters
+        params['module_name'] = interface.module_name
     wait_data = [reset_input] * wait_lines
     input_data = []
     for test in tests:
         new_data = test.make_input_data()
+        new_data[0][split_tag] = True
+        for d in new_data[1:]:
+            d[split_tag] = False
         input_data += new_data
 
+    logger.debug('start simulate')
     output_data = simulate(
-        external_test=external_test,
-        interface=interface, directory=directory,
+        interface=None,
+        params=params,
+        directory=directory,
         data=wait_data + input_data,
         sim_type=sim_type,
         test_name=test_name,
+        exclude_fn=exclude_fn,
+        additional_files=additional_files,
     )[wait_lines:]
+    logger.debug('finish simulate')
 
     test_data = split_data_for_tests(input_data, output_data)
 
@@ -191,7 +230,6 @@ def run_and_test(
         sim_type='hdl',
         clock_period=default_clock_period,
         extra_clock_periods=default_extra_clock_periods,
-        external_test=False,
         pause=False,
         force_refresh=False):
     if sim_type == 'fpga':
@@ -212,7 +250,6 @@ def run_and_test(
             sim_type=sim_type,
             clock_period=clock_period,
             extra_clock_periods=extra_clock_periods,
-            external_test=external_test,
             pause=pause,
             force_refresh=force_refresh,
             )

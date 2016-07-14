@@ -69,16 +69,19 @@ class VivadoTask(task.Task):
         stdout_fn = 'stdout.txt' 
         stderr_fn = 'stderr.txt' 
         command_fn = 'command.tcl' 
-        DETACHED_PROCESS = 8
         if os.name == 'nt':
             commands = [config.vivado, '-log', stdout_fn, '-mode', 'batch',
                         '-source', command_fn]
+            logger.debug('running vivado task in directory {}'.format(self.directory))
+            logger.debug('command is {}'.format(' '.join(commands)))
             self.process = subprocess.Popen(
                 commands,
                 # So that process stays alive when terminal is closed
                 # in Windows.
-                creationflags=DETACHED_PROCESS,
+                # Commented out because doesn't seem to be working now.
+                creationflags=subprocess.CREATE_NEW_CONSOLE,
             )
+            logger.debug('started process')
         else:
             commands = [config.vivado, '-mode', 'batch', '-source',
                         command_fn]

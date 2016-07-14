@@ -1,15 +1,17 @@
 import os
 import logging
 
-from pyvivado import interface, signal, config, builder, utils
+from pyvivado import interface, config, builder, utils
 
 logger = logging.getLogger(__name__)
+
 
 class OuterWrapperBuilder(builder.Builder):
 
     def __init__(self, params):
         super().__init__(params)
-        self.interface = params['interface']
+        self.interface = params.get('interface', None)
+        self.interface = interface.module_register[params['factory_name']](params)
         total_width_in = self.interface.total_width_in()
         end_index = total_width_in-1
         signals_in = []
@@ -37,6 +39,9 @@ class OuterWrapperBuilder(builder.Builder):
             'signals_in': signals_in,
             'signals_out': signals_out,
         }
+        self.packages = [
+            'pyvivado_utils',
+        ]
 
     def get_filename(self, directory):
         return os.path.join(directory, 'outer_wrapper.vhd')
@@ -45,7 +50,7 @@ class OuterWrapperBuilder(builder.Builder):
         template_fn = os.path.join(config.hdldir, 'wrapper', 'outer_wrapper.vhd.t')
         output_fn = self.get_filename(directory)
         utils.format_file(template_fn, output_fn, self.template_params)
-        
+
     def required_filenames(self, directory):
         return [
             self.get_filename(directory),
