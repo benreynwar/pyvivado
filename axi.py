@@ -253,7 +253,7 @@ class AxiCommand(object):
         'data': A list of integers to send (if it is a write command).
         `description`: An optional description for debugging purposes.
         '''
-        max_address = pow(2, 32-1)
+        max_address = pow(2, 32)-1
         self.start_address = start_address
         self.length = length
         self.readorwrite = readorwrite

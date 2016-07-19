@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 class AxiInterconnectBuilder(builder.Builder):
 
-    def __init__(self, params):
-        super().__init__(params)
+    def __init__(self, params, top_params={}):
+        super().__init__(params, name='axi_interconnect')
         self.simple_filenames = [
             os.path.join(config.hdldir, 'axi', 'axi_interconnect.vhd'),
         ]

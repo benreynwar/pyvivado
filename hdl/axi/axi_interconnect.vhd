@@ -7,11 +7,10 @@ use ieee.numeric_std.all;
 use work.axi_utils.all;
 use work.pyvivado_utils.all;
 
--- We assume that the first high 16 bits of the address specify which slave
--- and the low 16 bits specify an address within a slave.
 entity axi_interconnect is
   generic (
-    SLAVE_IDS: array_of_slave_id;
+    N_SLAVE_BITS: integer range 1 to 16 := 16;
+    SLAVE_IDS: array_of_slave_id := DEFAULT_SLAVE_IDS;
     N_SLAVES: positive
     );
   port (
@@ -34,13 +33,13 @@ architecture arch of axi_interconnect is
   signal n_ready_to_read: std_logic;
   signal m_ready_to_write: std_logic;
   -- The id of the slave we are trying to start a read from.
-  signal n_read_component_address: unsigned(15 downto 0);
+  signal n_read_component_address: unsigned(N_SLAVE_BITS-1 downto 0);
   -- The index of the slave we last tried to read from.
   signal m_last_read_index: integer range 0 to 65535;
   -- The id of the slave we are trying to write to.
-  signal n_write_component_address: unsigned(15 downto 0);
+  signal n_write_component_address: unsigned(N_SLAVE_BITS-1 downto 0);
   -- The id of the last slave we tried to write to.
-  signal m_write_component_address: unsigned(15 downto 0);
+  signal m_write_component_address: unsigned(N_SLAVE_BITS-1 downto 0);
   -- The index of the slave we last tried to write to.
   signal m_last_write_index: integer range 0 to 65535;
   -- The address local to the slave where we're reading from.
@@ -48,7 +47,7 @@ architecture arch of axi_interconnect is
   -- The address local to the slave where we're writing to.
   signal n_write_address: std_logic_vector(31 downto 0);
   
-  constant SIXTEEN_ZEROS: std_logic_vector(15 downto 0) := (others => '0');
+  constant ZEROS: std_logic_vector(N_SLAVE_BITS-1 downto 0) := (others => '0');
   -- Intermediate for calculating valid_X_component
   signal is_reading_by_index: std_logic_vector(N_SLAVES-1 downto 0);
   signal is_writing_by_index: std_logic_vector(N_SLAVES-1 downto 0);
@@ -60,13 +59,13 @@ architecture arch of axi_interconnect is
   signal m_bad_write_component_address: std_logic;
 begin
 
-  n_write_address <= SIXTEEN_ZEROS & i_m.awaddr(15 downto 0);
-  n_write_component_address <= unsigned(i_m.awaddr(31 downto 16))
+  n_write_address <= ZEROS & i_m.awaddr(32-N_SLAVE_BITS-1 downto 0);
+  n_write_component_address <= unsigned(i_m.awaddr(32-1 downto 32-N_SLAVE_BITS))
                                when i_m.awvalid = '1' else
                                m_write_component_address;
 
-  n_read_address <= SIXTEEN_ZEROS & i_m.araddr(15 downto 0);
-  n_read_component_address <= unsigned(i_m.araddr(31 downto 16));
+  n_read_address <= ZEROS & i_m.araddr(32-N_SLAVE_BITS-1 downto 0);
+  n_read_component_address <= unsigned(i_m.araddr(32-1 downto 32-N_SLAVE_BITS));
 
   -- Create inputs to slaves from master inputs.
   loop_slaves: for si in 0 to N_SLAVES-1 generate

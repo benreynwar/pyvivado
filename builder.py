@@ -43,7 +43,7 @@ class Builder(object):
     # Override to True in builders of broken modules.
     broken = False
 
-    def __init__(self, params, package_name=None):
+    def __init__(self, params, package_name=None, name=None):
         '''
         `params`: The parameters necessary to generate the module files.
         `package_name`: Send in the name of the package if this builder
@@ -66,6 +66,10 @@ class Builder(object):
         self.packages = []
         # The name of this package (is this is a package rather than a module)
         self.package_name = package_name
+        self.name = name
+        if self.name is None:
+            builder_name = self.__class__.__name__[:-len('Builder')]
+            self.name = builder_name
 
     def _id(self):
         '''
@@ -78,8 +82,7 @@ class Builder(object):
         if self.package_name is not None:
             as_tuple = ('package', self.package_name)
         else:
-            builder_name = self.__class__.__name__[:-len('Builder')]
-            as_tuple = ('not_package', builder_name,
+            as_tuple = ('not_package', self.name,
                         make_constant_hashable(self.params))
         _id = json.dumps(as_tuple)
         return _id

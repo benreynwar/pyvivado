@@ -4,7 +4,7 @@ import testfixtures
 import logging
 import shutil
 
-from pyvivado import filetestbench_project, fpga_project, vcs_project
+from pyvivado import filetestbench_project, fpga_project, vcs_project, vivado_project
 from pyvivado import config
 
 logger = logging.getLogger(__name__)

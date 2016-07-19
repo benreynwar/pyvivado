@@ -54,6 +54,7 @@ package axi_utils is
   type array_of_slave_id is array(MAX_N_SLAVE_IDS-1 downto 0) of slave_id;
   type array_of_axi4lite_m2s is array(integer range <>) of axi4lite_m2s;
   type array_of_axi4lite_s2m is array(integer range <>) of axi4lite_s2m;
+  constant DEFAULT_SLAVE_IDS: array_of_slave_id := (11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
 
   function axi4lite_s2m_to_slv(input: axi4lite_s2m) return std_logic_vector;
   function axi4lite_s2m_from_slv(input: std_logic_vector) return axi4lite_s2m;

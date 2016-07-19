@@ -7,6 +7,9 @@ from pyvivado.interface import module_register
 
 from pyvivado.hdl.wrapper import inner_wrapper, file_testbench
 
+# To load into registry
+from pyvivado.hdl import pyvivado_utils
+
 logger = logging.getLogger(__name__)
 
 
