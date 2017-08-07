@@ -264,14 +264,10 @@ proc ::pyvivado::monitor_redis {hwcode hwtarget jtagfreq fake} {
 
 # Send the projects bitstream to the FPGA.
 proc ::pyvivado::send_bitstream_to_fpga {proj_dir hwcode fake} {
+    set bitstreams [glob "${proj_dir}/TheProject.runs/impl_1/*.bit"]
+    set bitstream [lindex $bitstreams 0]
     if {$fake == 0} {
-	if {[file exists "${proj_dir}/TheProject.runs/impl_1/FileTestBench.bit"]} {
-	    set_property PROGRAM.FILE "${proj_dir}/TheProject.runs/impl_1/FileTestBench.bit" [lindex [get_hw_devices] 0]
-	} elseif {[file exists "${proj_dir}/TheProject.runs/impl_1/JtagAxiWrapper.bit"]} {
-	    set_property PROGRAM.FILE "${proj_dir}/TheProject.runs/impl_1/JtagAxiWrapper.bit" [lindex [get_hw_devices] 0]
-	} else {
-	    set_property PROGRAM.FILE "${proj_dir}/TheProject.runs/impl_1/JtagAxiWrapperNoReset.bit" [lindex [get_hw_devices] 0]
-	}
+	set_property PROGRAM.FILE $bitstream [lindex [get_hw_devices] 0]
 	set_property PROBES.FILE "${proj_dir}/TheProject.runs/impl_1/debug_nets.ltx" [lindex [get_hw_devices] 0]
 	current_hw_device [lindex [get_hw_devices] 0]
 	refresh_hw_device [lindex [get_hw_devices] 0]

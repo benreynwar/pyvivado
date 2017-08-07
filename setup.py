@@ -15,6 +15,7 @@ setup(
     license="MIT",
     url="https://github.com/codelucida/huRTLing",
     install_requires=[
+        'redis',
     ],
     dependency_links=[
     ],

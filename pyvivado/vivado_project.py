@@ -3,8 +3,12 @@ import logging
 import shutil
 import time
 
+import fusesoc_generators
+from axilent import handlers
+
+from pyvivado import jtagtestbench_generator
 from pyvivado import boards, tasks_collection, hash_helper, config
-from pyvivado import params_helper, vivado_task, task
+from pyvivado import params_helper, vivado_task, task, base_project
 
 # Want to be able to use when redis not available
 try:
@@ -449,8 +453,8 @@ open_project {{{project_filename}}}
             fake_int = 0
             description = 'Sending project to fpga and monitoring.'
         # Get the hardware code for an unmonitored FPGA.
-        self.params = self.project.params_helper.read()
-        hwcode = redis_utils.get_free_hwcode(self.params['board_params']['name'])
+        self.params = self.params_helper.read()
+        hwcode = redis_utils.get_free_hwcode(self.params['board'])
         if hwcode is None:
             raise Exception('No free hardware found.')
         hwtarget, jtagfreq = config.hwtargets[hwcode]
@@ -470,3 +474,37 @@ open_project {{{project_filename}}}
         # Create a Connection object for communication with the FPGA/
         conn = connection.Connection(hwcode)
         return t, conn
+
+    def implement_deploy_and_run_tests(self, tests):
+        t_implement = self.implement()
+        t_implement.wait()
+        t_monitor, conn = self.send_to_fpga_and_monitor()
+
+        handler = handlers.ConnCommandHandler(conn)
+        for test in tests:
+            test.prepare(handler)
+            test.check()
+        # Sleep for 10 seconds so that we can kill monitor
+        time.sleep(10)
+        # Destroy monitoring process
+        connection.kill_free_monitors(self.directory)
+
+    @classmethod
+    def from_fusesoc_core(
+            cls, directory, corename, entityname, generics, top_params,
+            boardname, frequency, overwrite_ok=False):
+        board_params = boards.params[boardname]
+        filenames = fusesoc_generators.get_filenames_from_core(
+            work_root=directory,
+            top_core_name=corename,
+            top_entity_name=entityname,
+            generic_sets=[generics],
+            top_params=top_params,
+            )
+        files_and_ip = jtagtestbench_generator.get_files_and_ip(
+            directory, filenames, entityname, generics, board_params, frequency)
+        p = base_project.BaseProject(
+                directory=os.path.join(directory, 'vivado'),
+                files_and_ip=files_and_ip, overwrite_ok=overwrite_ok)
+        v = VivadoProject(p, board=boardname, wait_for_creation=True)
+        return v
