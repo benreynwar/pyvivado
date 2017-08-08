@@ -504,7 +504,7 @@ open_project {{{project_filename}}}
         files_and_ip = jtagtestbench_generator.get_files_and_ip(
             directory, filenames, entityname, generics, board_params, frequency)
         p = base_project.BaseProject(
-                directory=os.path.join(directory, 'vivado'),
+                directory=directory,
                 files_and_ip=files_and_ip, overwrite_ok=overwrite_ok)
         v = VivadoProject(p, board=boardname, wait_for_creation=True)
         return v
