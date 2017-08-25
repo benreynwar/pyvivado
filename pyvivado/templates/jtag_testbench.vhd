@@ -20,25 +20,6 @@ architecture arch of {{dut_name}}_jtag is
   -- Axi signals
   signal m2s: axi4lite_m2s;
   signal s2m: axi4lite_s2m;
-  signal araddr: std_logic_vector(31 downto 0);
-  signal arprot: std_logic_vector(2 downto 0);
-  signal arready: std_logic;
-  signal arvalid: std_logic;
-  signal awaddr: std_logic_vector(31 downto 0);
-  signal awprot: std_logic_vector(2 downto 0);
-  signal awready: std_logic;
-  signal awvalid: std_logic;
-  signal bready: std_logic;
-  signal bresp: std_logic_vector(1 downto 0);
-  signal bvalid: std_logic;
-  signal rdata: std_logic_vector(31 downto 0);
-  signal rready: std_logic;
-  signal rresp: std_logic_vector(1 downto 0);
-  signal rvalid: std_logic;
-  signal wdata: std_logic_vector(31 downto 0);
-  signal wready: std_logic;
-  signal wstrb: std_logic_vector(3 downto 0);
-  signal wvalid: std_logic;
 
   component clk_wiz_0 port (
     clk_in1_n: in std_logic;

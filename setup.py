@@ -4,7 +4,8 @@ setup(
     name="pyvivado",
     packages=['pyvivado'],
     package_data={
-        '': ['sh/*.sh', 'sh/*.sh.t', 'tcl/*.tcl.t', 'tcl/*.tcl', 'xdc/*.xdc'],
+        '': ['sh/*.sh', 'sh/*.sh.t', 'tcl/*.tcl.t', 'tcl/*.tcl', 'xdc/*.xdc',
+             'templates/*.vhd'],
     },
     use_scm_version={
         "relative_to": __file__,

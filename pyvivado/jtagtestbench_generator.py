@@ -1,11 +1,8 @@
 import logging
 import os
-import time
 
 import jinja2
 
-from axilent import handlers
-from axilent.examples import axi_adder
 from pyvivado import vivado_project
 
 logger = logging.getLogger(__name__)
@@ -59,6 +56,7 @@ def get_files_and_ip(directory, filenames, top_entity, generics, board_params,
 if __name__ == '__main__':
     from slvcodec import config as slvcodec_config
     import axilent
+    from axilent.examples import axi_adder
     work_root = '/home/ben/Code/local/deleteme_test_axi_adder'
     corename = 'axi_adder'
     entityname = 'axi_adder'
