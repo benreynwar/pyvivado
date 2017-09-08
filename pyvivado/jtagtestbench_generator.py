@@ -3,8 +3,6 @@ import os
 
 import jinja2
 
-from pyvivado import vivado_project
-
 logger = logging.getLogger(__name__)
 
 
@@ -62,6 +60,7 @@ if __name__ == '__main__':
     entityname = 'axi_adder'
     slvcodec_config.setup_fusesoc([axilent.coresdir])
 
+    from pyvivado import vivado_project
     p = vivado_project.VivadoProject.from_fusesoc_core(
         directory=work_root,
         corename=corename,
