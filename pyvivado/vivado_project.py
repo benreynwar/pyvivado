@@ -5,6 +5,7 @@ import time
 
 import fusesoc_generators
 from axilent import handlers
+import slvcodec
 
 from pyvivado import jtagtestbench_generator
 from pyvivado import boards, tasks_collection, hash_helper, config
@@ -500,6 +501,7 @@ open_project {{{project_filename}}}
             top_entity_name=entityname,
             generic_sets=[generics],
             top_params=top_params,
+            additional_generator=slvcodec.add_slvcodec_files,
             )
         files_and_ip = jtagtestbench_generator.get_files_and_ip(
             directory, filenames, entityname, generics, board_params, frequency)
