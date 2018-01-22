@@ -13,7 +13,7 @@ def make_jtagtestbench(top_entity, generics):
         filetestbench_template = jinja2.Template(f.read())
     jtagtestbench = filetestbench_template.render(
         dut_name=top_entity,
-        dut_generics=generics,
+        dut_parameters=generics,
         )
     return jtagtestbench
 

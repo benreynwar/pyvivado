@@ -39,7 +39,6 @@ class VivadoProject(object):
                 status = f.readline()
         return status
 
-
     def __init__(self, project, part=None, board=None, overwrite_ok=False,
                  use_without_refresh=False, wait_for_creation=False):
         '''
@@ -59,13 +58,13 @@ class VivadoProject(object):
         self.project = project
         self.directory = self.directory_from_project(project)
         task_0_dir = os.path.join(self.directory, 'task_0')
+        self.new = True
         if os.path.exists(task_0_dir):
             task_0 = task.Task(task_0_dir)
             if task_0.is_finished():
                 self.new = False
 
         self.filename = os.path.join(self.directory, 'TheProject.xpr')
-        self.new = not os.path.exists(self.directory)
         if not self.new:
             if not os.path.exists(self.filename):
                 max_waits = 30
@@ -127,11 +126,9 @@ class VivadoProject(object):
         else:
             self.create_task = None
 
-
     @classmethod
     def directory_from_project(cls, project):
         return os.path.join(project.directory, 'vivado')
-
 
     @staticmethod
     def make_create_vivado_project_command(
