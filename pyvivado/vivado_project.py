@@ -318,11 +318,13 @@ class VivadoProject(object):
         t.run()
         return t
 
-    def run_simulation(self, test_name, runtime, sim_type='hdl'):
+    def run_simulation(self, test_name, test_bench_name, runtime, sim_type='hdl'):
         '''
         Spawns a vivado process that will run a simulation of the project.
 
         Args:
+            `test_name`: A label for the test.
+            `test_bench_name`: The top level test bench name.
             `runtime`: A string specifying the runtime.
             'sim_type`: The string specifying the simulation type.  It can be
                'hdl', 'post_synthesis', or 'timing.
@@ -334,11 +336,13 @@ class VivadoProject(object):
         simulation_files = self.project.file_helper.read()['simulation_files']
         command_template = '''
 open_project {{{project_filename}}}
-::pyvivado::run_{sim_type}_simulation {{{directory}}} {{{test_name}}} {{{runtime}}} {{ {simulation_files} }}
+::pyvivado::run_{sim_type}_simulation {{{directory}}} {{{test_name}}} {{{test_bench_name}}} {{{runtime}}} {{ {simulation_files} }}
 '''
         command = command_template.format(
             project_filename=self.filename, runtime=runtime, sim_type=sim_type,
-            test_name=test_name, directory=self.directory.replace('\\', '/'),
+            test_name=test_name,
+            test_bench_name=test_bench_name,
+            directory=self.directory.replace('\\', '/'),
             simulation_files=' '.join([
                 '{'+f+'}' for f in simulation_files]),
             )
@@ -351,16 +355,7 @@ open_project {{{project_filename}}}
         # Run the simulation task and wait for it to complete.
         t.run_and_wait()
         errors = t.get_errors()
-        output_filename = self.project.get_output_filename(
-            sim_type='vivado_'+sim_type, test_name=test_name)
-        if not os.path.exists(output_filename):
-            logger.error('Failed to create output file from simulation')
-            data_out = []
-        else:
-            # Read the output files.
-            data_out = self.project.interface.read_output_file(
-                os.path.join(t.directory, output_filename))
-        return errors, data_out
+        return errors
 
     def get_monitors_hwcode(self, monitor_task):
         '''
@@ -486,24 +481,3 @@ open_project {{{project_filename}}}
         time.sleep(10)
         # Destroy monitoring process
         connection.kill_free_monitors(self.directory)
-
-    @classmethod
-    def from_fusesoc_core(
-            cls, directory, corename, entityname, generics, top_params,
-            boardname, frequency, overwrite_ok=False):
-        board_params = boards.params[boardname]
-        filenames = fusesoc_generators.get_filenames_from_core(
-            work_root=directory,
-            top_core_name=corename,
-            top_entity_name=entityname,
-            generic_sets=[generics],
-            top_params=top_params,
-            additional_generator=slvcodec.add_slvcodec_files,
-            )
-        files_and_ip = jtagtestbench_generator.get_files_and_ip(
-            directory, filenames, entityname, generics, board_params, frequency)
-        p = base_project.BaseProject(
-                directory=directory,
-                files_and_ip=files_and_ip, overwrite_ok=overwrite_ok)
-        v = VivadoProject(p, board=boardname, wait_for_creation=True)
-        return v

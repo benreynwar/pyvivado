@@ -142,12 +142,12 @@ proc ::pyvivado::create_simset {proj_dir test_name sim_type simulation_files} {
         } else {
             puts "DEBUG: no simulation files."
         }
-        set_property generic "DATAINFILENAME=${proj_dir}/${test_name}/input.data DATAOUTFILENAME=${proj_dir}/${test_name}/vivado_${sim_type}_output.data" [get_filesets $simname]
+        #set_property generic "DATAINFILENAME=${proj_dir}/${test_name}/input.data DATAOUTFILENAME=${proj_dir}/${test_name}/vivado_${sim_type}_output.data" [get_filesets $simname]
     }
 }
     
 # Run a behavioral HDL simulation.
-proc ::pyvivado::run_hdl_simulation {proj_dir test_name runtime simulation_files} {
+proc ::pyvivado::run_hdl_simulation {proj_dir test_name test_bench_name runtime simulation_files} {
     set simname "${test_name}_hdl"
     set fileset_exists [::pyvivado::does_fileset_exist $simname]
     if {! $fileset_exists} {
@@ -162,14 +162,14 @@ proc ::pyvivado::run_hdl_simulation {proj_dir test_name runtime simulation_files
         set_property skip_compilation 0 [get_filesets $simname]
         puts "DEBUG: Not skipping test compilation."
     }
-    set_property top FileTestBench [get_filesets $simname]
+    set_property top $test_bench_name [get_filesets $simname]
     set_property xsim.simulate.runtime $runtime [get_filesets $simname]
     puts "DEBUG: About to run_hdl_simulation and pwd is [pwd]"
     launch_simulation -simset $simname -mode behavioral
 }
 
 # Run a post-synthesis behavioral simulation.
-proc ::pyvivado::run_post_synthesis_simulation {proj_dir test_name runtime simulation_files} {
+proc ::pyvivado::run_post_synthesis_simulation {proj_dir test_name test_bench_name runtime simulation_files} {
     set simname "${test_name}_post_synthesis"
     set fileset_exists [::pyvivado::does_fileset_exist $simname]
     if {! $fileset_exists} {
@@ -188,14 +188,14 @@ proc ::pyvivado::run_post_synthesis_simulation {proj_dir test_name runtime simul
         set_property skip_compilation 0 [get_filesets ${simname}]
         puts "DEBUG: Not skipping test compilation."
     }
-    set_property top FileTestBench [get_filesets $simname]
+    set_property top $test_bench_name [get_filesets $simname]
     set_property xsim.simulate.runtime $runtime [get_filesets ${simname}]
     puts "DEBUG: About to run_post_synthesis_simulation and pwd is [pwd]"
     launch_simulation -simset ${simname} -mode post-synthesis -type functional
 }
 
 # Run a post-implementation timing simulation.
-proc ::pyvivado::run_timing_simulation {proj_dir test_name runtime simulation_files} {
+proc ::pyvivado::run_timing_simulation {proj_dir test_name test_bench_name runtime simulation_files} {
     set simname "${test_name}_timing"
     set fileset_exists [::pyvivado::does_fileset_exist $simname]
     if {! $fileset_exists} {

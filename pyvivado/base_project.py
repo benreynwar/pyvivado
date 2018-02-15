@@ -68,56 +68,6 @@ def make_hash_directory(directory):
             raise Exception('temp directory for hash already exists. {}'.format(directory))
 
 
-def get_hash_from_builders(
-        directory, design_builders, simulation_builders, parameters,
-        top_module, temp_directory=None):
-    '''
-    Get the project hash for the project that these builders would create.
-
-    We work out the always work out the hash in a dummy directory so we
-    don't overwrite things unnecessarily.  Always use dummy directory since
-    hash may depend on the directory.
-    '''
-    if temp_directory is None:
-        temp_directory = os.path.join(directory, 'hash_check')
-    # Make a new directory for temporary files.
-    make_hash_directory(temp_directory)
-    try:
-        files_and_ip = make_files_and_ip(
-            directory=temp_directory,
-            design_builders=design_builders,
-            simulation_builders=simulation_builders,
-            top_module=top_module,
-            top_params=parameters,
-            )
-        # And generate the hash.
-        new_hash = get_hash(files_and_ip)
-    finally:
-        shutil.rmtree(temp_directory)
-    return new_hash
-
-
-def make_files_and_ip(
-        directory, design_builders, simulation_builders, top_module,
-        top_params):
-    simulation_top_params = top_params.copy()
-    simulation_top_params['use_compiled_memory'] = False
-    design_requirements, simulation_requirements = builder.build_all(
-        directory,
-        top_builders_params_pairs=((design_builders, top_params),
-                                   (simulation_builders, simulation_top_params)),
-        )
-    ips = builder.condense_ips(
-        design_requirements['ips'] + simulation_requirements['ips'])
-    files_and_ip = {
-        'design_files': design_requirements['filenames'],
-        'simulation_files': simulation_requirements['filenames'],
-        'ips': ips,
-        'top_module': top_module,
-        }
-    return files_and_ip
-
-
 class BaseProjectException(Exception):
     pass
 
@@ -195,3 +145,4 @@ class BaseProject(object):
         for fn in self.files_and_ip['simulation_files']:
             head, tail = os.path.split(fn)
             shutil.copyfile(fn, os.path.join(sim_dir, tail))
+
