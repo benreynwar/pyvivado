@@ -11,9 +11,15 @@ def make_jtagtestbench(top_entity, generics):
     template_fn = os.path.join(os.path.dirname(__file__), 'templates', 'jtag_testbench.vhd')
     with open(template_fn, 'r') as f:
         filetestbench_template = jinja2.Template(f.read())
+    new_generics = {}
+    for k, v in generics:
+        if isinstance(v, str):
+            if v[0] != "'":
+                v = '"' + v + '"'
+        new_generics[k] = v
     jtagtestbench = filetestbench_template.render(
         dut_name=top_entity,
-        dut_parameters=generics,
+        dut_parameters=new_generics,
         )
     return jtagtestbench
 
