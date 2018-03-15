@@ -1,5 +1,6 @@
 import logging
 import os
+import collections
 
 import jinja2
 
@@ -39,15 +40,27 @@ def get_files_and_ip(directory, filenames, top_entity, generics, board_params,
     new_fns = prepare_files(directory, filenames, top_entity, generics)
     xdc_file = board_params['xdc_filename']
     ips = (
-        ('clk_wiz', {
-            'PRIM_IN_FREQ': board_params['clock_frequency'],
-            'PRIM_SOURCE': board_params['clock_type'],
-            'CLKOUT1_REQUESTED_OUT_FREQ': frequency,
-        }, 'clk_wiz_0'),
+        ('clk_wiz', collections.OrderedDict((
+            ('CLKOUT2_USED', 'true'),
+            ('PRIM_IN_FREQ', board_params['clock_frequency']),
+            ('PRIM_SOURCE', board_params['clock_type']),
+            ('CLKOUT1_REQUESTED_OUT_FREQ', board_params['jtagtoaxi_frequency']),
+            ('CLKOUT2_REQUESTED_OUT_FREQ', frequency),
+        )), 'clk_wiz_0'),
         ('jtag_axi', {
             'PROTOCOL': 2,
         }, 'jtag_axi_0'),
-        )
+        ('axi_clock_converter', {
+            'PROTOCOL': 'AXI4LITE',
+            'DATA_WIDTH': 32,
+            'ID_WIDTH': 0,
+            'AWUSER_WIDTH': 0,
+            'ARUSER_WIDTH': 0,
+            'RUSER_WIDTH': 0,
+            'WUSER_WIDTH': 0,
+            'BUSER_WIDTH': 0,
+        }, 'axi_clock_converter_0'),
+    )
     files_and_ip = {
         'design_files': new_fns + filenames + [xdc_file],
         'simulation_files': [],

@@ -13,7 +13,8 @@ namespace eval ::pyvivado {
 #     `ips`: A list of (ip_name, ip_version, module_name, properties) used
 #         define the IP blocks that are required.
 #     `top_module`: The top module of the design (can be "").
-proc ::pyvivado::create_vivado_project {project_dir design_files simulation_files part board ips top_module} {
+#     `out_of_context`: Whether it the project is out of context (i.e. not wired to IO)
+proc ::pyvivado::create_vivado_project {project_dir design_files simulation_files part board ips top_module out_of_context} {
     if {$part != ""} {
         create_project TheProject $project_dir -part $part
     } else {
@@ -84,33 +85,38 @@ proc ::pyvivado::is_implemented {} {
 }
 
 # Synthesize the project if it hasn't been yet.
-proc ::pyvivado::synthesize {keep_hierarchy} {
+proc ::pyvivado::synthesize {keep_hierarchy out_of_context} {
+    puts "DEBUG: Starting synthesize"
+    if {$out_of_context != ""} {
+        set_property {STEPS.SYNTH_DESIGN.ARGS.MORE OPTIONS} -value {-mode out_of_context} -objects [get_runs synth_1]
+    }
     set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY full [get_runs synth_1]
     if {$keep_hierarchy != ""} {
 	set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY rebuilt [get_runs synth_1]
     }
     set synthesized [::pyvivado::is_synthesized]
     if {$synthesized == 0} {
+        puts "DEBUG: Calling real synthesis"
         launch_runs synth_1
         wait_on_run synth_1
     }
 }
 
 # Implement the project if it hasn't been yet.
-proc ::pyvivado::implement {} {
+proc ::pyvivado::implement {keep_hierarchy out_of_context} {
     set implemented [::pyvivado::is_implemented]
     if {$implemented == 0} {
-        ::pyvivado::synthesize {}
+        ::pyvivado::synthesize {$keep_hierarcy} {$out_of_context}
         launch_runs impl_1 -to_step write_bitstream
         wait_on_run impl_1
     }
 }
 
 # Implement the project but skip generating the bitstream.
-proc ::pyvivado::implement_without_bitstream {} {
+proc ::pyvivado::implement_without_bitstream {keep_hierarcy out_of_context} {
     set implemented [::pyvivado::is_implemented]
     if {$implemented == 0} {
-        ::pyvivado::synthesize {}
+        ::pyvivado::synthesize {$keep_hierarchy} {$out_of_context}
 	set_property STEPS.PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
         launch_runs impl_1
         wait_on_run impl_1
@@ -118,15 +124,19 @@ proc ::pyvivado::implement_without_bitstream {} {
 }
 
 # Open the project (specified by the `proj_dir`) and sythesize
-proc ::pyvivado::open_and_synthesize {proj_dir keep_hierarchy} {
+proc ::pyvivado::open_and_synthesize {proj_dir keep_hierarchy out_of_context} {
     open_project "${proj_dir}/TheProject.xpr"
-    ::pyvivado::synthesize $keep_hierarchy
+    ::pyvivado::synthesize {$keep_hierarchy} {$out_of_context}
 }
 
 # Open the project (specified by the `proj_dir`) and implement it.
-proc ::pyvivado::open_and_implement {proj_dir} {
+proc ::pyvivado::open_and_implement {proj_dir keep_hierarchy out_of_context} {
     open_project "${proj_dir}/TheProject.xpr"
-    ::pyvivado::implement
+    if {$out_of_context == ""} {
+        ::pyvivado::implement {$keep_hierarchy} {$out_of_context}
+    } else {
+        ::pyvivado::implement_without_bitstream {$keep_hierarchy} {$out_of_context}
+    }
 }
 
 proc ::pyvivado::create_simset {proj_dir test_name sim_type simulation_files} {
@@ -153,6 +163,7 @@ proc ::pyvivado::run_hdl_simulation {proj_dir test_name test_bench_name runtime 
     if {! $fileset_exists} {
         ::pyvivado::create_simset ${proj_dir}/.. $test_name hdl $simulation_files
     }
+    puts "DEBUG: Made simset"
     set sim_dir "${proj_dir}/TheProject.sim/${simname}/behav"
     set sim_dir_exists [file isdirectory $sim_dir]
     if {$sim_dir_exists == 1} {
@@ -175,10 +186,12 @@ proc ::pyvivado::run_post_synthesis_simulation {proj_dir test_name test_bench_na
     if {! $fileset_exists} {
         ::pyvivado::create_simset ${proj_dir}/.. $test_name post_synthesis $simulation_files
     }
+    puts "DEBUG: Created simset"
     set sim_dir "${proj_dir}/TheProject.sim/${simname}/synth"
     set sim_dir_exists [file isdirectory $sim_dir]
     set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY none [get_runs synth_1]
-    ::pyvivado::synthesize {}
+    puts "DEBUG: About to synthesize"
+    ::pyvivado::synthesize {} "out_of_context"
     set sim_dir "${proj_dir}/TheProject.sim/${simname}/synth"
     set sim_dir_exists [file isdirectory $sim_dir]
     if {$sim_dir_exists == 1} {
@@ -204,7 +217,7 @@ proc ::pyvivado::run_timing_simulation {proj_dir test_name test_bench_name runti
     set sim_dir "${proj_dir}/TheProject.sim/${simname}/synth"
     set sim_dir_exists [file isdirectory $sim_dir]
 
-    ::pyvivado::implement_without_bitstream
+    ::pyvivado::implement_without_bitstream {} "out_of_context"
     if {$sim_dir_exists == 1} {
         set_property skip_compilation 1 [get_filesets $simname]
         puts "DEBUG: Skipping test compilation."

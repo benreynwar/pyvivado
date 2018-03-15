@@ -21,6 +21,14 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def make_clock_constraint(fn, clock_name, frequency):
+    clock_period = 1000/frequency
+    constraint = 'create_clock -period {} -waveform {{0.000 {} }} [get_ports {}]'.format(
+        clock_period, clock_period/2, clock_name)
+    with open(fn, 'w') as f:
+        f.write(constraint)
+
+
 class VivadoProject(object):
     '''
     The base class for python wrappers around Vivado Projects.
@@ -40,7 +48,8 @@ class VivadoProject(object):
         return status
 
     def __init__(self, project, part=None, board=None, overwrite_ok=False,
-                 use_without_refresh=False, wait_for_creation=False):
+                 use_without_refresh=False, wait_for_creation=False, out_of_context=False,
+                 frequency=None, clock_name=None):
         '''
         Create a new Vivado project.
 
@@ -57,6 +66,7 @@ class VivadoProject(object):
         logger.debug('Initialize vivado project.')
         self.project = project
         self.directory = self.directory_from_project(project)
+        self.out_of_context = out_of_context
         task_0_dir = os.path.join(self.directory, 'task_0')
         self.new = True
         if os.path.exists(task_0_dir):
@@ -75,6 +85,7 @@ class VivadoProject(object):
                     n_waits += 1
                 if n_waits >= max_waits:
                     raise Exception('Directory exists, but project file does not.')
+
         params_fn = os.path.join(self.directory, 'params.txt')
         self.params_helper = params_helper.ParamsHelper(params_fn)
         old_params = self.params_helper.read()
@@ -119,6 +130,14 @@ class VivadoProject(object):
             os.mkdir(self.directory)
             self.params_helper.write(new_params)
             self.hash_helper.write()
+
+            if self.out_of_context and frequency and clock_name:
+                fn = os.path.join(self.directory, 'clock_constraint.xdc')
+                make_clock_constraint(fn, clock_name, frequency)
+                self.additional_constraint_files = [fn]
+            else:
+                self.additional_constraint_files = []
+
             logger.debug('launching create task')
             self.create_task = self.launch_create_task()
             if wait_for_creation:
@@ -133,7 +152,7 @@ class VivadoProject(object):
     @staticmethod
     def make_create_vivado_project_command(
             directory, design_files, simulation_files, ips, part, board,
-            top_module):
+            top_module, out_of_context):
         # Format the IP infomation into a TCL-friendly format.
         tcl_ips = []
         for ip_name, ip_properties, module_name in ips:
@@ -163,8 +182,12 @@ class VivadoProject(object):
             board_name = ''
         if part_name is None:
             part_name = ''
+        if not out_of_context:
+            out_of_context = ''
+        else:
+            out_of_context = 'out_of_context'
         # Generate a TCL command to create the project.
-        command_template = '''::pyvivado::create_vivado_project {{{directory}}} {{ {design_files} }}  {{ {simulation_files} }} {{{part}}} {{{board}}} {{{ips}}} {{{top_module}}}'''
+        command_template = '''::pyvivado::create_vivado_project {{{directory}}} {{ {design_files} }}  {{ {simulation_files} }} {{{part}}} {{{board}}} {{{ips}}} {{{top_module}}} {{{out_of_context}}}'''
         command = command_template.format(
             directory=directory,
             design_files=' '.join([
@@ -175,6 +198,7 @@ class VivadoProject(object):
             board=board_name,
             ips=tcl_ips,
             top_module=top_module,
+            out_of_context=out_of_context,
         )
         return command
 
@@ -193,12 +217,14 @@ class VivadoProject(object):
 
     def launch_create_task(self):
         design_files = self.project.files_and_ip['design_files']
+        if self.additional_constraint_files:
+            design_files += self.additional_constraint_files
         simulation_files = self.project.files_and_ip['simulation_files']
         ips = self.project.files_and_ip['ips']
         top_module = self.project.files_and_ip['top_module']
         command = self.make_create_vivado_project_command(
             self.directory, design_files, simulation_files,
-            ips, self.part, self.board, top_module)
+            ips, self.part, self.board, top_module, self.out_of_context)
         logger.debug('Command is {}'.format(command))
         logger.debug('Directory of new project is {}.'.format(self.directory))
         # Create a task to create the project.
@@ -277,10 +303,9 @@ class VivadoProject(object):
         '''
         Spawn a Vivado process to synthesize the project.
         '''
-        if keep_hierarchy:
-            command_templ = '::pyvivado::open_and_synthesize {{{}}} "keep_hierarchy"'
-        else:
-            command_templ = '::pyvivado::open_and_synthesize {{{}}} {{}}'
+        tcl_keep_hierarchy = '"keep_hierarchy"' if keep_hierarchy else '{{}}'
+        tcl_out_of_context = '"out_of_context"' if self.out_of_context else '{{}}'
+        command_templ = '::pyvivado::open_and_synthesize {{{}}} ' + tcl_keep_hierarchy + ' ' + tcl_out_of_context
         t = vivado_task.VivadoTask.create(
             command_text=command_templ.format(self.directory),
             description='Synthesize project.',
@@ -289,13 +314,15 @@ class VivadoProject(object):
         t.run()
         return t
 
-    def implement(self):
+    def implement(self, keep_hierarchy=False):
         '''
         Spawn a Vivado process to implement the project.
         '''
+        tcl_keep_hierarchy = '"keep_hierarchy"' if keep_hierarchy else '{{}}'
+        tcl_out_of_context = '"out_of_context"' if self.out_of_context else '{{}}'
         t = vivado_task.VivadoTask.create(
-            command_text='::pyvivado::open_and_implement {{{}}}'.format(
-                self.directory),
+            command_text='::pyvivado::open_and_implement {{{}}} {} {}'.format(
+                self.directory, tcl_keep_hierarchy, tcl_out_of_context),
             description='Implement project.',
             collection=self.tasks_collection,
         )
