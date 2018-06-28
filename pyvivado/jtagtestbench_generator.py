@@ -7,13 +7,13 @@ import jinja2
 logger = logging.getLogger(__name__)
 
 
-def make_jtagtestbench(top_entity, generics):
+def make_jtagtestbench(top_entity, generics, clk_b=False, use_reset=True):
     # Make records for inputs and outputs.
     template_fn = os.path.join(os.path.dirname(__file__), 'templates', 'jtag_testbench.vhd')
     with open(template_fn, 'r') as f:
         filetestbench_template = jinja2.Template(f.read())
     new_generics = {}
-    for k, v in generics:
+    for k, v in generics.items():
         if isinstance(v, str):
             if v[0] != "'":
                 v = '"' + v + '"'
@@ -21,12 +21,14 @@ def make_jtagtestbench(top_entity, generics):
     jtagtestbench = filetestbench_template.render(
         dut_name=top_entity,
         dut_parameters=new_generics,
+        clk_b = clk_b,
+        use_reset = use_reset,
         )
     return jtagtestbench
 
 
-def prepare_files(directory, filenames, top_entity, generics):
-    jtb = make_jtagtestbench(top_entity, generics)
+def prepare_files(directory, filenames, top_entity, generics, clk_b=False, use_reset=True):
+    jtb = make_jtagtestbench(top_entity, generics, clk_b=clk_b, use_reset=use_reset)
     jtb_fn = os.path.join(directory, '{}_jtag.vhd'.format(top_entity))
     with open(jtb_fn, 'w') as f:
         f.write(jtb)
@@ -36,17 +38,23 @@ def prepare_files(directory, filenames, top_entity, generics):
 
 
 def get_files_and_ip(directory, filenames, top_entity, generics, board_params,
-                     frequency):
-    new_fns = prepare_files(directory, filenames, top_entity, generics)
+                     frequency, frequency_b=None):
+    clk_b = (frequency_b is not None)
+    new_fns = prepare_files(directory, filenames, top_entity, generics, clk_b=clk_b,
+                            use_reset=board_params['use_reset'])
     xdc_file = board_params['xdc_filename']
+    clk_wiz_params = collections.OrderedDict((
+        ('CLKOUT2_USED', 'true'),
+        ('CLKOUT3_USED', 'true'),
+        ('PRIM_IN_FREQ', board_params['clock_frequency']),
+        ('PRIM_SOURCE', board_params['clock_type']),
+        ('CLKOUT1_REQUESTED_OUT_FREQ', board_params['jtagtoaxi_frequency']),
+        ('CLKOUT2_REQUESTED_OUT_FREQ', frequency),
+        ))
+    if frequency_b is not None:
+        clk_wiz_params['CLKOUT3_REQUESTED_OUT_FREQ'] = frequency_b
     ips = (
-        ('clk_wiz', collections.OrderedDict((
-            ('CLKOUT2_USED', 'true'),
-            ('PRIM_IN_FREQ', board_params['clock_frequency']),
-            ('PRIM_SOURCE', board_params['clock_type']),
-            ('CLKOUT1_REQUESTED_OUT_FREQ', board_params['jtagtoaxi_frequency']),
-            ('CLKOUT2_REQUESTED_OUT_FREQ', frequency),
-        )), 'clk_wiz_0'),
+        ('clk_wiz', clk_wiz_params, 'clk_wiz_0'),
         ('jtag_axi', {
             'PROTOCOL': 2,
         }, 'jtag_axi_0'),

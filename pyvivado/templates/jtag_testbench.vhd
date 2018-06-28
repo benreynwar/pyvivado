@@ -8,13 +8,15 @@ use work.axi_utils.all;
 entity {{dut_name}}_jtag is
   port (
     clk_in_n: in std_logic;
-    clk_in_p: in std_logic
+    clk_in_p: in std_logic{% if use_reset %};
+    reset: in std_logic{% endif %}
     );
 end entity;
 
 architecture arch of {{dut_name}}_jtag is
   -- Basic clk signals
-  signal clk: std_logic;
+  signal clk: std_logic;{% if clk_b %}
+  signal clk_b: std_logic;{% endif %}
   signal jtagtoaxi_clk: std_logic;
   -- Axi signals
   signal m2s: axi4lite_m2s;
@@ -22,12 +24,25 @@ architecture arch of {{dut_name}}_jtag is
   signal jtagtoaxim2s: axi4lite_m2s;
   signal jtagtoaxis2m: axi4lite_s2m;
 
+  signal jtagtoaxi_breset: std_logic;
+  signal jtagtoaxi_reset: std_logic;
+  signal jtagtoaxi_resetn: std_logic;
+
+  signal breset_clk: std_logic;
+  signal breset_clk_b: std_logic;
+  signal reset_clk: std_logic;
+  signal reset_clk_b: std_logic;
+  signal resetn_clk: std_logic;
+
+  {% if not use_reset %}signal reset: std_logic;{% endif %}
+
   component clk_wiz_0 port (
     clk_in1_n: in std_logic;
     clk_in1_p: in std_logic;
     reset: in std_logic;
     clk_out1: out std_logic;
-    clk_out2: out std_logic
+    clk_out2: out std_logic{% if clk_b %};
+    clk_out3: out std_logic{% endif %}
     );
   end component;
 
@@ -104,19 +119,51 @@ architecture arch of {{dut_name}}_jtag is
 
 begin
 
+  {% if not use_reset %}reset <= '0';{% endif %}
+
   the_clock_wizard: clk_wiz_0
     port map(
       clk_in1_n => clk_in_n,
       clk_in1_p => clk_in_p,
-      reset => '0',
-      clk_out1 => jtagtoaxi_clk,
-      clk_out2 => clk
+      reset => reset,
+      clk_out1 => jtagtoaxi_clk,{% if clk_b %}
+      clk_out2 => clk_b,
+      clk_out3 => clk{% else %}
+      clk_out2 => clk{% endif %}
       );
+
+  -- Create synchronous resets.
+  process(clk)
+  begin
+    if rising_edge(clk) then
+      breset_clk <= reset;
+      reset_clk <= breset_clk;
+    end if;
+  end process;
+  resetn_clk <= not reset_clk;
+
+  process(clk_b)
+  begin
+    if rising_edge(clk_b) then
+      breset_clk_b <= reset;
+      reset_clk_b <= breset_clk_b;
+    end if;
+  end process;
+
+  process(jtagtoaxi_clk)
+  begin
+    if rising_edge(jtagtoaxi_clk) then
+      jtagtoaxi_breset <= reset;
+      jtagtoaxi_reset <= jtagtoaxi_breset;
+    end if;
+  end process;
+  jtagtoaxi_resetn <= not jtagtoaxi_reset;
+
 
   jtag_to_axi_master: jtag_axi_0
     port map(
       aclk => jtagtoaxi_clk,
-      aresetn => '1',
+      aresetn => jtagtoaxi_resetn,
       m_axi_araddr => jtagtoaxim2s.araddr,
       m_axi_arprot => jtagtoaxim2s.arprot,
       m_axi_arready => jtagtoaxis2m.arready,
@@ -141,7 +188,7 @@ begin
   clock_domain_crossing: axi_clock_converter_0
     port map (
       s_axi_aclk => jtagtoaxi_clk,
-      s_axi_aresetn => '1',
+      s_axi_aresetn => jtagtoaxi_resetn,
       s_axi_araddr => jtagtoaxim2s.araddr,
       s_axi_arprot => jtagtoaxim2s.arprot,
       s_axi_arready => jtagtoaxis2m.arready,
@@ -162,7 +209,7 @@ begin
       s_axi_wstrb => jtagtoaxim2s.wstrb,
       s_axi_wvalid => jtagtoaxim2s.wvalid,
       m_axi_aclk => clk,
-      m_axi_aresetn => '1',
+      m_axi_aresetn => resetn_clk,
       m_axi_araddr => m2s.araddr,
       m_axi_arprot => m2s.arprot,
       m_axi_arready => s2m.arready,
@@ -194,7 +241,8 @@ begin
     {% endif %}
     port map (
       clk => clk,
-      reset => '0',
+      reset => reset_clk,{% if clk_b %}
+      clk_b => clk_b,{% endif %}
       m2s => m2s,
       s2m => s2m
       );

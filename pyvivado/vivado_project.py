@@ -49,7 +49,7 @@ class VivadoProject(object):
 
     def __init__(self, project, part=None, board=None, overwrite_ok=False,
                  use_without_refresh=False, wait_for_creation=False, out_of_context=False,
-                 frequency=None, clock_name=None):
+                 frequency=None, frequency_b=None, clock_name=None):
         '''
         Create a new Vivado project.
 
