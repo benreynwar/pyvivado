@@ -46,3 +46,11 @@ def kill_free_monitors(directory):
         if hwcode:
             conn = Connection(hwcode)
             conn.kill_monitor()
+
+
+def kill_all_free_monitors():
+    usage = get_hardware_usage()
+    for hwcode in usage:
+        if (not usage[hwcode]['active']) and usage[hwcode]['monitored']:
+            conn = Connection(hwcode)
+            conn.kill_monitor()

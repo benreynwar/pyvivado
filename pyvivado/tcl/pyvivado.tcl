@@ -87,9 +87,9 @@ proc ::pyvivado::is_implemented {} {
 # Synthesize the project if it hasn't been yet.
 proc ::pyvivado::synthesize {keep_hierarchy out_of_context} {
     puts "DEBUG: Starting synthesize"
-    if {$out_of_context != ""} {
-        set_property {STEPS.SYNTH_DESIGN.ARGS.MORE OPTIONS} -value {-mode out_of_context} -objects [get_runs synth_1]
-    }
+    #if {$out_of_context != ""} {
+    #    set_property {STEPS.SYNTH_DESIGN.ARGS.MORE OPTIONS} -value {-mode out_of_context} -objects [get_runs synth_1]
+    #}
     set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY full [get_runs synth_1]
     if {$keep_hierarchy != ""} {
 	set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY rebuilt [get_runs synth_1]
@@ -132,11 +132,11 @@ proc ::pyvivado::open_and_synthesize {proj_dir keep_hierarchy out_of_context} {
 # Open the project (specified by the `proj_dir`) and implement it.
 proc ::pyvivado::open_and_implement {proj_dir keep_hierarchy out_of_context} {
     open_project "${proj_dir}/TheProject.xpr"
-    if {$out_of_context == ""} {
-        ::pyvivado::implement {$keep_hierarchy} {$out_of_context}
-    } else {
-        ::pyvivado::implement_without_bitstream {$keep_hierarchy} {$out_of_context}
-    }
+    #if {$out_of_context == ""} {
+    ::pyvivado::implement {$keep_hierarchy} {$out_of_context}
+    #} else {
+    #    ::pyvivado::implement_without_bitstream {$keep_hierarchy} {$out_of_context}
+    #}
 }
 
 proc ::pyvivado::create_simset {proj_dir test_name sim_type simulation_files} {

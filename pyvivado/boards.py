@@ -11,6 +11,7 @@ params = {
         'part': 'xc7k70tfbg676-1',
         'xilinx_name': None,
         'name': 'dummy',
+        'use_reset': True,
     },
     'xilinx:vc709': {
         'clock_frequency': 200,
@@ -20,6 +21,14 @@ params = {
         'part': 'xc7vx690tffg1761-2',
         'xilinx_name': 'xilinx.com:vc709:part0:1.0',
         'name': 'xilinx:vc709',
+        'use_reset': True,
+    },
+    'xilinx:zcu102': {
+        'xdc_filename': None,
+        'part': 'xczu9eg-ffvb1156-2-e',
+        'xilinx_name': 'xilinx.com:zcu102:part0:3.1',
+        'name': 'xilinx:zcu102',
+        'use_reset': False,
     },
     'profpga:uno2000': {
         'clock_frequency': 100,
@@ -29,6 +38,7 @@ params = {
         'part': 'xc7v2000T',
         'xilinx_name': None,
         'name': 'profpga:uno2000',
+        'use_reset': False,
     },        
 }
 

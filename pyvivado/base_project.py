@@ -119,9 +119,9 @@ class BaseProject(object):
                 n_waits += 1
                 files_and_ip = self.file_helper.read()
         self.files_and_ip = files_and_ip
-        if self.hash_helper.is_changed():
-            if not overwrite_ok:
-                raise OverwriteForbiddenException()
+        #if self.hash_helper.is_changed():
+        #    if not overwrite_ok:
+        #        raise OverwriteForbiddenException()
         if self.files_and_ip is None:
             raise BaseProjectException('No Files and IP specified')
         self.hash_helper.write()
