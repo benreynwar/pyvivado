@@ -126,10 +126,9 @@ begin
       clk_in1_n => clk_in_n,
       clk_in1_p => clk_in_p,
       reset => reset,
-      clk_out1 => jtagtoaxi_clk,{% if clk_b %}
-      clk_out2 => clk_b,
-      clk_out3 => clk{% else %}
-      clk_out2 => clk{% endif %}
+      clk_out1 => jtagtoaxi_clk,
+      clk_out2 => clk{% if clk_b %},
+      clk_out3 => clk_b{% endif %}
       );
 
   -- Create synchronous resets.
