@@ -1,10 +1,25 @@
 pyvivado
 ========
 
+WARNING
+-------
+
+It is unlikely this project will be maintained for long.
+[fusesoc](github.com/olofk/fusesoc) has very similar functionality, but also supports many more FPGA vendors.
+I'm trying to migrate my own work to use fusesoc instead of pyvivado.  Future effort will go into
+improving fusesoc's support for vivado rather than improving this project.
+
+
+SUMMARY
+-------
+
 A python toolbox for automating vivado projects.
 
  - Automate generation of Vivado projects.
  - Communicate easily with FPGA-deployed modules from python.
+
+REMOVED FUNCTIONALITY
+---------------------
 
 Previously pyvivado contained functionality for generating HDL files
 and utilities for testing HDL code with python.  This has now been split
