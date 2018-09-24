@@ -5,7 +5,7 @@ WARNING
 -------
 
 It is unlikely this project will be maintained for long.
-[fusesoc](github.com/olofk/fusesoc) has very similar functionality, but also supports many more FPGA vendors.
+[fusesoc](https://github.com/olofk/fusesoc) has very similar functionality, but also supports many more FPGA vendors.
 I'm trying to migrate my own work to use fusesoc instead of pyvivado.  Future effort will go into
 improving fusesoc's support for vivado rather than improving this project.
 
