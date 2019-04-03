@@ -45,13 +45,14 @@ def get_files_and_ip(directory, filenames, top_entity, generics, board_params,
     xdc_file = board_params['xdc_filename']
     clk_wiz_params = collections.OrderedDict((
         ('CLKOUT2_USED', 'true'),
-        ('CLKOUT3_USED', 'true'),
+        ('CLKOUT3_USED', 'false'),
         ('PRIM_IN_FREQ', board_params['clock_frequency']),
         ('PRIM_SOURCE', board_params['clock_type']),
         ('CLKOUT1_REQUESTED_OUT_FREQ', board_params['jtagtoaxi_frequency']),
         ('CLKOUT2_REQUESTED_OUT_FREQ', frequency),
         ))
-    if frequency_b is not None:
+    if frequency_b:
+        clk_wiz_params['CLKOUT3_USED'] = 'true'
         clk_wiz_params['CLKOUT3_REQUESTED_OUT_FREQ'] = frequency_b
     ips = (
         ('clk_wiz', clk_wiz_params, 'clk_wiz_0'),

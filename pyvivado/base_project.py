@@ -102,7 +102,7 @@ class BaseProject(object):
                     if not overwrite_ok:
                         raise OverwriteForbiddenException()
                     else:
-                        self.file_helper.write(self.files_and_ip, overwrite_ok=True)
+                        self.file_helper.write(files_and_ip, overwrite_ok=True)
             else:
                 self.file_helper.write(files_and_ip)
         else:

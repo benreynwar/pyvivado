@@ -438,7 +438,8 @@ open_project {{{project_filename}}}
             `conn`: is the `Connection` with which this python process can
                  communicate the monitor.
         '''
-        hwcode = redis_utils.get_unmonitored_projdir_hwcode(self.directory)
+        logger.debug('Looking for hwcode from directory {}'.format(self.directory))
+        hwcode = redis_utils.get_projdir_hwcode(self.directory)
         if hwcode is None:
             raise Exception('No free hardware running this project found.')
         hwtarget, jtagfreq = config.hwtargets[hwcode]
@@ -454,7 +455,7 @@ open_project {{{project_filename}}}
         return t, conn
 
 
-    def send_to_fpga_and_monitor(self, fake=False):
+    def send_to_fpga_and_monitor(self, fake=False, send=True, monitor=True):
         '''
         Send the bitstream of this project to an FPGA and start
         monitoring that FPGA.
@@ -481,18 +482,28 @@ open_project {{{project_filename}}}
         logger.info('Using hardware: {}'.format(hwcode))
         # Spawn a Vivado process to deploy the bitstream and
         # start monitoring.
+        command_lines = ['::pyvivado::connect {} {} {} '.format(
+            hwtarget, int(jtagfreq), fake_int)]
+        if send:
+            command_lines += ['::pyvivado::send_bitstream_to_fpga {{{}}} {} {}'.format(
+                self.directory, hwcode, fake_int)]
+        if monitor:
+            command_lines += ['::pyvivado::monitor_redis_inner {} {}'.format(hwcode, fake_int)]
+        command_text = '\n'.join(command_lines)
         t = vivado_task.VivadoTask.create(
             collection=self.tasks_collection,
-            command_text='::pyvivado::send_to_fpga_and_monitor {{{}}} {} {} {} {}'.format(
-                self.directory, hwcode, hwtarget, int(jtagfreq), fake_int),
+            command_text=command_text,
             description=description,
         )
         t.run()
-        # Wait for the task to start monitoring and get the
-        # hardware code of the free fpga.
-        self.wait_for_monitor(hwcode=hwcode, monitor_task=t)
-        # Create a Connection object for communication with the FPGA/
-        conn = connection.Connection(hwcode)
+        if monitor:
+            # Wait for the task to start monitoring and get the
+            # hardware code of the free fpga.
+            self.wait_for_monitor(hwcode=hwcode, monitor_task=t)
+            # Create a Connection object for communication with the FPGA/
+            conn = connection.Connection(hwcode)
+        else:
+            conn = None
         return t, conn
 
     def implement_deploy_and_run_tests(self, tests):

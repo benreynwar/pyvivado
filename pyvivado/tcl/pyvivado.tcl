@@ -230,6 +230,24 @@ proc ::pyvivado::run_timing_simulation {proj_dir test_name test_bench_name runti
     launch_simulation -simset $simname -mode post-implementation -type timing
 }
 
+
+# Connect the hardware server to the FPGA.
+# Args:
+#     `hwtarget`: The hardware code of the FPGA we want to deploy it to.
+#          e.g '*/xilinx_tcf/Digilent/2567329678474680A'
+#     `jtagfeq`: The frequency of jtag communication.
+#     `fake`: If fake == 1 that we don't deploy it we just pretend we 
+#          did any just return 0 for all AXI read commands.
+proc ::pyvivado::connect {hwtarget jtagfreq fake} {
+    if {$fake == 0} {
+        open_hw
+        connect_hw_server -url localhost:3121
+        current_hw_target [get_hw_targets $hwtarget]
+        set_property PARAM.FREQUENCY $jtagfreq [get_hw_targets $hwtarget]
+        open_hw_target
+    }
+}
+
 # Deploy the bitstream to an FPGA and start monitoring it.
 # Args:
 #     `proj_dir`: The directory where the project we want to deploy is.
@@ -237,16 +255,11 @@ proc ::pyvivado::run_timing_simulation {proj_dir test_name test_bench_name runti
 #     `fake`: If fake == 1 that we don't deploy it we just pretend we 
 #          did any just return 0 for all AXI read commands.
 proc ::pyvivado::send_to_fpga_and_monitor {proj_dir hwcode hwtarget jtagfreq fake} {
-    if {$fake == 0} {
-  open_hw
-	connect_hw_server -url localhost:3121
-	current_hw_target [get_hw_targets $hwtarget]
-	set_property PARAM.FREQUENCY $jtagfreq [get_hw_targets $hwtarget]
-	open_hw_target
-    }
+    ::pyvivado::connect $hwtarget $jtagfreq $fake
     ::pyvivado::send_bitstream_to_fpga $proj_dir $hwcode $fake
     ::pyvivado::monitor_redis_inner $hwcode $fake
 }
+
 
 # Monitor REDIS for AXI commands to send to the FPGA.
 # Assumes connection with hardware server is already setup.x

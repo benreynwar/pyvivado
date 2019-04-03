@@ -24,12 +24,13 @@ if {{[catch {{
   set fileId [open $finished_f "w"]
   puts -nonewline $fileId FINISHED_ERROR
   close $fileId
+}} else {{
+  # Everything went smoothly so update our state
+  # with FINISHED_OK.
+  set fileId [open $current_state_f "w"]
+  puts -nonewline $fileId FINISHED_OK
+  close $fileId
+  set fileId [open $finished_f "w"]
+  puts -nonewline $fileId FINISHED_OK
+  close $fileId
 }}
-# Everything went smoothly so update our state
-# with FINISHED_OK.
-set fileId [open $current_state_f "w"]
-puts -nonewline $fileId FINISHED_OK
-close $fileId
-set fileId [open $finished_f "w"]
-puts -nonewline $fileId FINISHED_OK
-close $fileId
